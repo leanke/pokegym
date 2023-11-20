@@ -3,7 +3,7 @@ from gymnasium import Env, spaces
 import numpy as np
 import os
 
-from pokegym.pyboy_binding import (ACTIONS, make_env, open_state_file,
+from pokemon_red.pyboy_binding import (ACTIONS, make_env, open_state_file,
     load_pyboy_state, run_action_on_emulator)
 from pokegym import ram_map, game_map
 

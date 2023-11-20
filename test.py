@@ -1,12 +1,12 @@
 from pdb import set_trace as T
 import gymnasium
 
-from pokegym import PokemonRed, PokemonRedV1
+from links_awaken import LinksAwaken, LinksAwakenV1
 import time
 
 
 def play_game(steps):
-    game = PokemonRed(headless=False)
+    game = LinksAwaken(headless=False)
     game.reset()
 
     for _ in range(steps):
@@ -29,5 +29,5 @@ def performance_test(game_cls, steps=10000):
     print('Steps per second: {}'.format(steps / (end - start)))
 
 if __name__ == '__main__':
-    performance_test(PokemonRed)
-    performance_test(PokemonRedV1)
+    performance_test(LinksAwaken)
+    performance_test(LinksAwakenV1)
