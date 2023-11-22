@@ -5,7 +5,7 @@ setup(
     name="pokegym",
     description="Pokemon Red Gymnasium environment for reinforcement learning",
     long_description_content_type="text/markdown",
-    version=open('pokegym/version.py').read().split()[-1].strip("'"),
+    version=open('pokemon_red/version.py').read().split()[-1].strip("'"),
     packages=find_packages(),
     include_package_data=True,
     install_requires=[

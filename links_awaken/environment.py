@@ -72,9 +72,8 @@ class LinksAwakenV1(LinksAwaken):
         map_reward = self.map_status / 16
 
         # explore reward
-        x, y, dest1 = ram_map.position(self.game)
-        self.seen_coords.add((x, y, dest1))
-        self.seen_maps.add(dest1)
+        x, y  = ram_map.position(self.game)
+        self.seen_coords.add((x, y))
         exploration_reward = 0.01 * len(self.seen_coords)
 
         # Healing rewards
@@ -125,7 +124,7 @@ class LinksAwakenV1(LinksAwaken):
                 'maps_explored': self.seen_coords,
                 'deaths': self.death_count,
                 'money': self.money,
-                'exploration_map': self.map_status,
+                'exploration': self.map_status,
                 'dung_keys': self.keys
             }
 
