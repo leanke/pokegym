@@ -4,14 +4,19 @@ import numpy as np
 
 from links_awaken.pyboy_binding import (ACTIONS, make_env, open_state_file,
     load_pyboy_state, run_action_on_emulator)
-from links_awaken import ram_map
+from links_awaken import ram_map as ram
 
 
 class LinksAwaken:
     def __init__(self, rom_path='loz.gb',
-            state_path=__file__.rstrip('environment.py') + 'loz.state',
-            headless=True, quiet=False):
-        self.game, self.screen = make_env(rom_path, headless, quiet)
+            state_path=None, headless=True, quiet=False,
+            disable_input=True, sound=False, sound_emulated=False):
+        '''Creates a LinksAwaken environment'''
+        if state_path is None:
+            state_path = __file__.rstrip('environment.py') + 'loz.state'
+
+        self.game, self.screen = make_env(
+            rom_path, headless, quiet)
         self.initial_state = open_state_file(state_path)
         self.headless = headless
 
@@ -39,8 +44,7 @@ class LinksAwaken:
 
 class LinksAwakenV1(LinksAwaken):
     def __init__(self, rom_path='loz.gb',
-            state_path=__file__.rstrip('environment.py') + 'loz.state',
-            headless=True, quiet=False):
+            state_path=None, headless=True, quiet=False):
         super().__init__(rom_path, state_path, headless, quiet)
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
@@ -60,6 +64,9 @@ class LinksAwakenV1(LinksAwaken):
         self.total_healing = 0
         self.last_hp_fraction = 1.0
         self.last_reward = None
+        self.slot_a = 0
+        self.slot_b = 0
+        self.held_item = 0
 
         return self.render(), {}
 
@@ -68,16 +75,16 @@ class LinksAwakenV1(LinksAwaken):
         self.time += 1
 
         #map status
-        self.map_status = ram_map.map_explore(self.game)
+        self.map_status = ram.map_explore(self.game)
         map_reward = self.map_status / 16
 
         # explore reward
-        x, y  = ram_map.position(self.game)
+        x, y  = ram.position(self.game)
         self.seen_coords.add((x, y))
-        exploration_reward = 0.01 * len(self.seen_coords)
+        exploration_reward = 0.05 * len(self.seen_coords)
 
         # Healing rewards
-        hp_fraction = ram_map.hp_fraction(self.game)
+        hp_fraction = ram.hp_fraction(self.game)
         fraction_increased = hp_fraction > self.last_hp_fraction
         if fraction_increased:
             if self.last_hp_fraction > 0:
@@ -85,19 +92,30 @@ class LinksAwakenV1(LinksAwaken):
         healing_reward = self.total_healing
 
         #death rewards
-        self.death_count = ram_map.death_count(self.game)
+        self.death_count = ram.death_count(self.game)
         death_reward = -0.05 * self.death_count
 
         # money reward
-        self.money = ram_map.read_rupees(self.game)
+        self.money = ram.read_rupees(self.game)
         money_reward = 0.2 * self.money
 
         # dungeon keys reward
-        self.keys = ram_map.dung_keys(self.game)
+        self.keys = ram.dung_keys(self.game)
         key_reward = self.keys
 
+        # reward for held items
+        slot_a, slot_b = ram.read_held_items(self.game)
+        reward_a = 0  # Initialize reward_a to 0
+        reward_b = 0  # Initialize reward_b to 0
+        if ram.ITEMS_MAP.get(slot_a) in ['SWORD', 'SHIELD']:
+            reward_a = 1
+        if ram.ITEMS_MAP.get(slot_b) in ['SWORD', 'SHIELD']:
+            reward_b = 1
+        held_item = reward_a + reward_b 
+        held_item_reward = held_item 
+
         # sum reward
-        reward = self.reward_scale * (death_reward + exploration_reward + money_reward + key_reward + map_reward)
+        reward = self.reward_scale * (held_item_reward + death_reward + exploration_reward + money_reward + key_reward + map_reward)
 
         # Subtract previous reward
         # TODO: Don't record large cumulative rewards in the first place
@@ -119,7 +137,10 @@ class LinksAwakenV1(LinksAwaken):
                     'exploration': exploration_reward,
                     'rupees': money_reward,
                     'dung_keys': key_reward,
-                    'map_status': map_reward
+                    'map_status': map_reward,
+                    'held_items': held_item_reward,
+                    'A_Slot': reward_a,
+                    'B_Slot': reward_b
                 },
                 'maps_explored': self.seen_coords,
                 'deaths': self.death_count,

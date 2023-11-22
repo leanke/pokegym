@@ -131,8 +131,7 @@ def read_uint16(game, start_addr):
 def position(game):
     x_pos = game.get_memory_value(XMAP)
     y_pos = game.get_memory_value(YMAP)
-    map_n = game.get_memory_value(DEST1)
-    return x_pos, y_pos, map_n
+    return x_pos, y_pos
 
 
 
@@ -154,11 +153,6 @@ def hp_fraction(game):
     if max_hp_sum == 0:
         return 0
     return hp_sum / max_hp_sum
-    
-
-def read_held_items(game):
-    items = [game.get_memory_value(addr) for addr in [0xDB00, 0xDB01]]
-    return items
 
 def read_inv(game):
     inventory = []
@@ -183,17 +177,42 @@ def map_explore(game):
     caught_bytes = [game.get_memory_value(addr) for addr in MAP_STATUS]
     return sum([bit_count(b) for b in caught_bytes])
 
-#def items(game):
-#    flippers = game.get_memory_value()
-#    potion = game.get_memory_value(0xD356)
-#    return flippers, potion
+
 
 def dung_keys(game):
     keys = sum(bit_count(game.get_memory_value(i)) for i in range(KEY_START, KEY_STOP))
     return keys
 
+def read_held_items(game):
+    slot_a = game.get_memory_value(SLOTA)
+    slot_b = game.get_memory_value(SLOTB)
+    return slot_a, slot_b
+
+
+
+
+    
+#def items(game):
+#    flippers = game.get_memory_value()
+#    potion = game.get_memory_value(0xD356)
+#    return flippers, potion
 
 #FLIPPERS = 0xDB0C # Flippers (01=have)
 #POTION = 0xDB0D # Potion (01=have) 
 #DUNG_KEYS = range(0xDB10, 0xDB14) # Dungeons entrance keys (01=have)
 #DEATH1 #death counter slot 1 
+
+
+# SLOTB = 0xDB00
+# SLOTA = 0xDB01
+#  # Inventory
+# INV0 = 0xDB02
+# INV1 = 0xDB03
+# INV2 = 0xDB04
+# INV3 = 0xDB05
+# INV4 = 0xDB06
+# INV5 = 0xDB07
+# INV6 = 0xDB08
+# INV7 = 0xDB09
+# INV8 = 0xDB0A
+# INV9 = 0xDB0B
