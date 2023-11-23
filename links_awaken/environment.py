@@ -6,23 +6,39 @@ from links_awaken.pyboy_binding import (ACTIONS, make_env, open_state_file,
     load_pyboy_state, run_action_on_emulator)
 from links_awaken import ram_map as ram
 
+def play():
+    '''Creates an environment and plays it'''
+    env = LinksAwaken(rom_path='pokemon_red.gb', state_path=None, headless=False,
+        disable_input=False, sound=False, sound_emulated=False
+    )
+    env.reset()
+
+    env.game.set_emulation_speed(6)
+    while True:
+        env.render()
+        env.game.tick()
 
 class LinksAwaken:
     def __init__(self, rom_path='loz.gb',
-            state_path=None, headless=True, quiet=False,
+            state_path=None, headless=False, quiet=False,
             disable_input=True, sound=False, sound_emulated=False):
         '''Creates a LinksAwaken environment'''
         if state_path is None:
             state_path = __file__.rstrip('environment.py') + 'loz.state'
 
         self.game, self.screen = make_env(
-            rom_path, headless, quiet)
+            rom_path, headless, quiet,
+            disable_input=disable_input,
+            sound_emulated=sound_emulated,
+            sound=sound,
+        )
         self.initial_state = open_state_file(state_path)
         self.headless = headless
 
+        R, C = self.screen.raw_screen_buffer_dims()
         self.observation_space = spaces.Box(
             low=0, high=255, dtype=np.uint8,
-            shape=(*self.screen.raw_screen_buffer_dims(), 3),
+            shape=(R//2, C//2, 3),
         )
         self.action_space = spaces.Discrete(len(ACTIONS))
 
@@ -41,11 +57,11 @@ class LinksAwaken:
     def close(self):
         self.game.stop(False)
 
-
 class LinksAwakenV1(LinksAwaken):
     def __init__(self, rom_path='loz.gb',
             state_path=None, headless=True, quiet=False):
         super().__init__(rom_path, state_path, headless, quiet)
+        
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
         '''Resets the game. Seeding is NOT supported'''
@@ -68,7 +84,7 @@ class LinksAwakenV1(LinksAwaken):
         self.slot_b = 0
         self.held_item = 0
 
-        return self.render(), {}
+        return self.render()[::2, ::2], {}
 
     def step(self, action):
         run_action_on_emulator(self.game, self.screen, ACTIONS[action], self.headless)
@@ -149,4 +165,11 @@ class LinksAwakenV1(LinksAwaken):
                 'dung_keys': self.keys
             }
 
-        return self.render(), reward, done, done, info
+        return self.render()[::2, ::2], reward, done, done, info
+
+
+
+
+
+###########################################################################################
+

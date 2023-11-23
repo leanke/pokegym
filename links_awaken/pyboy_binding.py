@@ -2,8 +2,10 @@ from pdb import set_trace as T
 from io import BytesIO
 
 from pyboy import PyBoy
+from pyboy import logger
 from pyboy.utils import WindowEvent
 
+logger.logger.setLevel('ERROR')
 
 class Down:
     PRESS = WindowEvent.PRESS_ARROW_DOWN
@@ -40,13 +42,13 @@ class Select:
 # TODO: Add start button to actions when we need it
 ACTIONS = (Down, Left, Right, Up, A, B, Start, Select)
 
-def make_env(gb_path, headless=True, quiet=False):
+def make_env(gb_path, headless=True, quiet=False, **kwargs):
     game = PyBoy(
         gb_path,
         debugging=False,
-        disable_input=False,
         window_type='headless' if headless else 'SDL2',
         hide_window=quiet,
+        **kwargs,
     )
 
     screen = game.botsupport_manager().screen()
