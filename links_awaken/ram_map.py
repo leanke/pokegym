@@ -73,8 +73,8 @@ NUM_BOMB = 0xDB4D # Number of bombs
 SWORD_LEVEL = 0xDB4E # Sword level 
 
 # Number of times the character died for each save slot (one byte per save slot) 
-DEATH1 = 0xDB56 
-DEATH2 = 0xDB57
+DEATH2 = 0xDB56 
+DEATH1 = 0xDB57
 DEATH3 = 0xDB58
 
 HEART = 0xDB5A # Current health. Each increment of 08h is one full heart, each increment of 04h is one-half heart
@@ -136,6 +136,7 @@ def position(game):
 
 
 
+
 #new functions
 
 
@@ -170,8 +171,10 @@ def read_rupees(game):
     return rupees_value
 
 def death_count(game):
-    deaths = game.get_memory_value(DEATH1)
-    return deaths
+    death1 = bit_count(game.get_memory_value(DEATH1))
+    death2 = bit_count(game.get_memory_value(DEATH2))
+    death3 = bit_count(game.get_memory_value(DEATH3))
+    return death1
 
 def map_explore(game):
     caught_bytes = [game.get_memory_value(addr) for addr in MAP_STATUS]

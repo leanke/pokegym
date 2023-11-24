@@ -70,15 +70,14 @@ class LinksAwakenV1(LinksAwaken):
         self.time = 0
         self.max_episode_steps = max_episode_steps
         self.reward_scale = reward_scale
-
+        self.died_count = 0
         self.money = 0
         self.map_status = 0
         self.seen_coords = set()
         self.seen_maps = set()
         self.keys = 0
-        self.death_count = 0
         self.total_healing = 0
-        self.last_hp_fraction = 1.0
+        self.last_health = 0
         self.last_reward = None
         self.slot_a = 0
         self.slot_b = 0
@@ -100,20 +99,28 @@ class LinksAwakenV1(LinksAwaken):
         exploration_reward = 0.05 * len(self.seen_coords)
 
         # Healing rewards
-        hp_fraction = ram.hp_fraction(self.game)
-        fraction_increased = hp_fraction > self.last_hp_fraction
-        if fraction_increased:
-            if self.last_hp_fraction > 0:
-                self.total_healing += hp_fraction - self.last_hp_fraction
-        healing_reward = self.total_healing
+        self.last_health = ram.hp_fraction(self.game)
+        cur_health = ram.hp_fraction(self.game)
+        if cur_health > self.last_health:
+            if self.last_health > 0:
+                heal_amount = cur_health - self.last_health
+                if heal_amount > 0.5:
+                    print(f'healed: {heal_amount}')
+                #self.total_healing_rew += heal_amount * 4
 
         #death rewards
-        self.death_count = ram.death_count(self.game)
-        death_reward = -0.05 * self.death_count
+        self.died_count = ram.death_count(self.game)
+        died_count = ram.death_count(self.game)
+        if died_count > self.died_count:
+            self.died_count += 1
 
-        # money reward
-        self.money = ram.read_rupees(self.game)
-        money_reward = 0.2 * self.money
+
+        death_reward = -0.05 * self.died_count
+
+        # # money reward
+        # money = ram.read_rupees(self.game)
+        # self.money = money
+        # money_reward = 0.2 * self.money
 
         # dungeon keys reward
         self.keys = ram.dung_keys(self.game)
@@ -130,8 +137,11 @@ class LinksAwakenV1(LinksAwaken):
         held_item = reward_a + reward_b 
         held_item_reward = held_item 
 
+        #print rewards
+        # print(f'Deaths:',self.died_count, 'Rupees:',self.money, 'HP:',self.last_health)
+
         # sum reward
-        reward = self.reward_scale * (held_item_reward + death_reward + exploration_reward + money_reward + key_reward + map_reward)
+        reward = self.reward_scale * (held_item_reward + death_reward + exploration_reward + key_reward + map_reward)
 
         # Subtract previous reward
         # TODO: Don't record large cumulative rewards in the first place
@@ -146,12 +156,12 @@ class LinksAwakenV1(LinksAwaken):
         info = {}
         done = self.time >= self.max_episode_steps
         if done:
+            print(f'----------reset----------')
             info = {
                 'reward': {
                     'delta': reward,
-                    'death': death_reward,
                     'exploration': exploration_reward,
-                    'rupees': money_reward,
+                    #'rupees': money_reward,
                     'dung_keys': key_reward,
                     'map_status': map_reward,
                     'held_items': held_item_reward,
@@ -159,7 +169,7 @@ class LinksAwakenV1(LinksAwaken):
                     'B_Slot': reward_b
                 },
                 'maps_explored': self.seen_coords,
-                'deaths': self.death_count,
+                'deaths': self.died_count,
                 'money': self.money,
                 'exploration': self.map_status,
                 'dung_keys': self.keys
