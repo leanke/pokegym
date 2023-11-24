@@ -8,7 +8,7 @@ from links_awaken import ram_map as ram
 
 def play():
     '''Creates an environment and plays it'''
-    env = LinksAwaken(rom_path='pokemon_red.gb', state_path=None, headless=False,
+    env = LinksAwaken(rom_path='loz.gb', state_path=None, headless=False,
         disable_input=False, sound=False, sound_emulated=False
     )
     env.reset()
@@ -24,7 +24,7 @@ class LinksAwaken:
             disable_input=True, sound=False, sound_emulated=False):
         '''Creates a LinksAwaken environment'''
         if state_path is None:
-            state_path = __file__.rstrip('environment.py') + 'loz.state'
+            state_path = __file__.rstrip('environment.py') + 'sword.state'
 
         self.game, self.screen = make_env(
             rom_path, headless, quiet,
