@@ -61,6 +61,8 @@ class LinksAwakenV1(LinksAwaken):
     def __init__(self, rom_path='loz.gb',
             state_path=None, headless=True, quiet=False):
         super().__init__(rom_path, state_path, headless, quiet)
+        if state_path is None:
+            state_path = __file__.rstrip('environment.py') + 'sword.state'
         
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
@@ -82,6 +84,7 @@ class LinksAwakenV1(LinksAwaken):
         self.slot_a = 0
         self.slot_b = 0
         self.held_item = 0
+        self.shells = 0
 
         return self.render()[::2, ::2], {}
 
@@ -96,7 +99,7 @@ class LinksAwakenV1(LinksAwaken):
         # explore reward
         x, y  = ram.position(self.game)
         self.seen_coords.add((x, y))
-        exploration_reward = 0.05 * len(self.seen_coords)
+        exploration_reward = 0.1 * len(self.seen_coords)
 
         # Healing rewards
         self.last_health = ram.hp_fraction(self.game)
@@ -104,9 +107,9 @@ class LinksAwakenV1(LinksAwaken):
         if cur_health > self.last_health:
             if self.last_health > 0:
                 heal_amount = cur_health - self.last_health
-                if heal_amount > 0.5:
+                if heal_amount > 1.0:
                     print(f'healed: {heal_amount}')
-                #self.total_healing_rew += heal_amount * 4
+                #self.total_healing_rew += heal_amount * .5
 
         #death rewards
         self.died_count = ram.death_count(self.game)
@@ -117,14 +120,23 @@ class LinksAwakenV1(LinksAwaken):
 
         death_reward = -0.05 * self.died_count
 
-        # # money reward
-        # money = ram.read_rupees(self.game)
-        # self.money = money
-        # money_reward = 0.2 * self.money
+        # money reward
+        self.money = ram.read_rupees(self.game)
+        money = ram.read_rupees(self.game)
+        if money > self.money:
+            self.money += 1
+        money_reward = 0.05 * self.money
 
         # dungeon keys reward
         self.keys = ram.dung_keys(self.game)
         key_reward = self.keys
+
+        #secret shell reward
+        self.shells = ram.secret_shell(self.game)
+        shells = ram.secret_shell(self.game)
+        if shells > self.shells:
+            self.shells += 1
+        shell_reward = 0.2 * self.shells
 
         # reward for held items
         slot_a, slot_b = ram.read_held_items(self.game)
@@ -137,12 +149,14 @@ class LinksAwakenV1(LinksAwaken):
         held_item = reward_a + reward_b 
         held_item_reward = held_item 
 
-        #print rewards
-        # print(f'Deaths:',self.died_count, 'Rupees:',self.money, 'HP:',self.last_health)
-
+        # test
+        dest = ram.dest_status(self.game)
         # sum reward
-        reward = self.reward_scale * (held_item_reward + death_reward + exploration_reward + key_reward + map_reward)
+        reward = self.reward_scale * (shell_reward + money_reward + death_reward + exploration_reward + key_reward + map_reward)
 
+        #print rewards
+        print(f'Shells:',self.shells, 'Deaths:',self.died_count, 'Rupees:',self.money, 'HP:',self.last_health, 'Total Reward:',reward)
+        print(f'DestID:', dest)
         # Subtract previous reward
         # TODO: Don't record large cumulative rewards in the first place
         if self.last_reward is None:
@@ -161,18 +175,19 @@ class LinksAwakenV1(LinksAwaken):
                 'reward': {
                     'delta': reward,
                     'exploration': exploration_reward,
-                    #'rupees': money_reward,
+                    'rupees': money_reward,
+                    'shells': shell_reward,
                     'dung_keys': key_reward,
                     'map_status': map_reward,
                     'held_items': held_item_reward,
-                    'A_Slot': reward_a,
-                    'B_Slot': reward_b
+                    'deaths': death_reward
                 },
                 'maps_explored': self.seen_coords,
                 'deaths': self.died_count,
                 'money': self.money,
                 'exploration': self.map_status,
-                'dung_keys': self.keys
+                'dung_keys': self.keys,
+                'shells': self.shells
             }
 
         return self.render()[::2, ::2], reward, done, done, info

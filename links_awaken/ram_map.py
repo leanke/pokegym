@@ -79,7 +79,9 @@ DEATH3 = 0xDB58
 
 HEART = 0xDB5A # Current health. Each increment of 08h is one full heart, each increment of 04h is one-half heart
 MAX_HEART = 0xDB5B # Maximum health. Simply counts the number of hearts Link has in hex. Max recommended value is 0Eh (14 hearts)
-NUM_RUPEE = range(0xDB5D, 0xDB5E) # Number of rupees (for 999 put 0999) 
+# Number of rupees (for 999 put 0999) 
+NUM_RUPEE1 = 0xDB5D
+NUM_RUPEE2 = 0xDB5E
 INSTRUMENT = range(0xDB65, 0xDB6C) # Instruments for every dungeon, 00=no instrument, 03=have instrument 
 MAX_POWDER = 0xDB76 # Max magic powder
 MAX_BOMB = 0xDB77 # Max bombs 
@@ -131,6 +133,7 @@ def read_uint16(game, start_addr):
 def position(game):
     x_pos = game.get_memory_value(XMAP)
     y_pos = game.get_memory_value(YMAP)
+    
     return x_pos, y_pos
 
 
@@ -164,11 +167,13 @@ def read_inv(game):
     return inventory
 
 def read_rupees(game):
-    rupee_address_range = NUM_RUPEE
-    rupees_value = 0
-    for address in rupee_address_range:
-        rupees_value += game.get_memory_value(address)
-    return rupees_value
+    return (100 * bcd(game.get_memory_value(NUM_RUPEE1))
+    + bcd(game.get_memory_value(NUM_RUPEE2)))
+    # rupee_address_range = NUM_RUPEE
+    # rupees_value = 0
+    # for address in rupee_address_range:
+    #     rupees_value += game.get_memory_value(address)
+    # return rupees_value
 
 def death_count(game):
     death1 = bit_count(game.get_memory_value(DEATH1))
@@ -180,7 +185,9 @@ def map_explore(game):
     caught_bytes = [game.get_memory_value(addr) for addr in MAP_STATUS]
     return sum([bit_count(b) for b in caught_bytes])
 
-
+def secret_shell(game):
+    shell = game.get_memory_value(SHELLS)
+    return shell
 
 def dung_keys(game):
     keys = sum(bit_count(game.get_memory_value(i)) for i in range(KEY_START, KEY_STOP))
@@ -191,10 +198,39 @@ def read_held_items(game):
     slot_b = game.get_memory_value(SLOTB)
     return slot_a, slot_b
 
+def dest_status(game):
+    dest1_status = {
+        0x00: 'dungeon',
+        0x01: 'Overworld',
+        0x02: 'SideView',
+        0xFF: 'Unknown',
+        }
+    dest1 = game.get_memory_value(DEST1)
+    status = dest1_status.get(dest1, 'Unknown')
+    return status
+    # DEST1 = 0xD401 # 00 - overworld, 01 - dungeon, 02 - side view area 
+    # DEST2 = 0xD402 # Values from 00 to 1F accepted. FF is Color Dungeon 
+    # DEST3 = 0xD403 # Room number. Must appear on map or it will lead to an empty room
 
-
-
-    
+# def read_map_range(game):
+#     # Define a mapping for tile values
+#     tile_mapping = {
+#         0x00: 'Empty',
+#         0x04: 'Ground',
+#         0x0A: 'Grass',
+#         0x0C: 'Tile',
+#         0x0D: 'FTile',
+#         0x25: 'TLTree',
+#         0x26: 'TRTree',
+#         0x27: 'BLTree',
+#         0x28: 'BRTree',
+#         0x44: 'Flower',
+#         0x5C: 'Bush',
+#         0x62: 'Fence',
+#         0xE1: 'Door',
+#         0xFF: 'Boundary'
+    # }
+   
 #def items(game):
 #    flippers = game.get_memory_value()
 #    potion = game.get_memory_value(0xD356)
@@ -202,20 +238,3 @@ def read_held_items(game):
 
 #FLIPPERS = 0xDB0C # Flippers (01=have)
 #POTION = 0xDB0D # Potion (01=have) 
-#DUNG_KEYS = range(0xDB10, 0xDB14) # Dungeons entrance keys (01=have)
-#DEATH1 #death counter slot 1 
-
-
-# SLOTB = 0xDB00
-# SLOTA = 0xDB01
-#  # Inventory
-# INV0 = 0xDB02
-# INV1 = 0xDB03
-# INV2 = 0xDB04
-# INV3 = 0xDB05
-# INV4 = 0xDB06
-# INV5 = 0xDB07
-# INV6 = 0xDB08
-# INV7 = 0xDB09
-# INV8 = 0xDB0A
-# INV9 = 0xDB0B
