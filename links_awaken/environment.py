@@ -218,15 +218,14 @@ class LinksAwakenV1(LinksAwaken):
                     'map_addr': self.dest_reward,
                     'held_items': held_item_reward,
                     'deaths': death_reward,
-                    'healing': self.total_healing
+                    'healing': heal_reward
                 },
-                'maps_explored': self.seen_tile,
                 'deaths': self.died_count,
                 'money': self.money,
                 'exploration': self.seen_coords,
                 'dung_keys': self.keys,
                 'shells': self.shells,
-                'intro': self.intro_reward
+                'health': self.last_health
             }
 
         return self.render()[::2, ::2], reward, done, done, info
