@@ -2,7 +2,7 @@ from pdb import set_trace as T
 from gymnasium import Env, spaces
 import numpy as np
 
-from links_awaken.pyboy_binding import (ACTIONS, make_env, open_state_file,
+from links_awaken.pyboy_binding import (START, ACTIONS, make_env, open_state_file,
     load_pyboy_state, run_action_on_emulator)
 from links_awaken import ram_map as ram
 
@@ -13,7 +13,7 @@ def play():
     )
     env.reset()
 
-    env.game.set_emulation_speed(6)
+    env.game.set_emulation_speed(10)
     while True:
         env.render()
         env.game.tick()
@@ -87,6 +87,10 @@ class LinksAwakenV1(LinksAwaken):
         self.held_item = 0
         self.shells = 0
         self.intro_reward = 0
+        self.heal_amount = 0
+        self.dest_reward = 0
+        self.held_item = 0
+
 
         return self.render()[::2, ::2], {}
 
@@ -94,51 +98,40 @@ class LinksAwakenV1(LinksAwaken):
         run_action_on_emulator(self.game, self.screen, ACTIONS[action], self.headless)
         self.time += 1
 
-        #map status
-        # self.map_status = ram.map_explore(self.game)
-        # map_reward = self.map_status * 1
-
-        #map tile address
-        tile = ram.map_tile(self.game)
-        self.seen_tile.add((tile))
-        tile_reward = 2 * len(self.seen_tile)
-
         # explore reward
-        x, y  = ram.position(self.game)
-        self.seen_coords.add((x, y))
-        exploration_reward = 1.0 * len(self.seen_coords)
+        x, y, tile  = ram.position(self.game)
+        self.seen_coords.add((x, y, tile))
+        exploration_reward = 0.05 * len(self.seen_coords)
 
         # Healing rewards
-        self.last_health = ram.hp_fraction(self.game)
         cur_health = ram.hp_fraction(self.game)
         if cur_health > self.last_health:
             if self.last_health > 0:
-                heal_amount = cur_health - self.last_health
-                if heal_amount > 0.5:
-                    print(f'healed: {heal_amount}')
-                self.total_healing += heal_amount * .5
+                self.heal_amount = cur_health - self.last_health
+                if self.heal_amount > 0.05:
+                    print(f'healed: {self.heal_amount}')
+                self.total_healing += self.heal_amount
+        self.last_health = cur_health
+        heal_reward = self.total_healing * 0.05
 
         #death rewards
         self.died_count = ram.death_count(self.game)
         died_count = ram.death_count(self.game)
         if died_count > self.died_count:
             self.died_count += 1
-
-
-        death_reward = -0.0 * self.died_count
+        death_reward = -0.05 * self.died_count
 
         #intro screen
         byte = ram.intro(self.game)
         if byte >= 1:
-            self.intro_reward = -20
+            self.intro_reward = -.5
         
-
         # money reward
         self.money = ram.read_rupees(self.game)
         money = ram.read_rupees(self.game)
         if money > self.money:
             self.money += 1
-        money_reward = 0.01 * self.money
+        money_reward = 0.02 * self.money
 
         # dungeon keys reward
         self.keys = ram.dung_keys(self.game)
@@ -155,22 +148,52 @@ class LinksAwakenV1(LinksAwaken):
         slot_a, slot_b = ram.read_held_items(self.game)
         reward_a = 0  # Initialize reward_a to 0
         reward_b = 0  # Initialize reward_b to 0
-        if ram.ITEMS_MAP.get(slot_a) in ['SWORD', 'SHIELD']:
-            reward_a = 10
-        if ram.ITEMS_MAP.get(slot_b) in ['SWORD', 'SHIELD']:
-            reward_b = 10
-        held_item = reward_a + reward_b 
-        held_item_reward = held_item 
+        if ram.ITEMS_MAP.get(slot_a) in ['SWORD']:
+            reward_a = 1
+        if ram.ITEMS_MAP.get(slot_b) in ['SHIELD']:
+            reward_b = 1
+        self.held_item = reward_a + reward_b 
+        held_item_reward = self.held_item * .5
 
-        # test
-        dest = ram.dest_status(self.game)
+        # over world/dung reward
+        dest, value = ram.dest_status(self.game)
+        if value == 1: # 1 = dungeon status
+            self.dest_reward += -0.01
+        else:
+            self.dest_reward += 0
 
         # sum reward
-        reward = self.reward_scale * (exploration_reward + self.intro_reward + tile_reward + self.total_healing + shell_reward + money_reward + death_reward + key_reward) # + exploration_reward + held_item_reward
+        reward = self.reward_scale * (self.dest_reward + held_item_reward + exploration_reward + self.intro_reward + heal_reward + shell_reward + money_reward + death_reward + key_reward) # + exploration_reward + held_item_reward
+        reward1 = (held_item_reward + exploration_reward + heal_reward + shell_reward + money_reward + key_reward)
+        neg_reward = 0.00000001 + (death_reward + self.intro_reward + self.dest_reward)
 
         #print rewards
-        print(f'Staps:',self.time,'Deaths:',self.died_count,' Rupees:',self.money,' Total:',reward)
-        print(f'intro:',self.intro_reward,'Tile:',tile_reward,' DestID:',dest)
+        if self.headless == False:
+            print(f'-------------Counter-------------')
+            print(f'Steps:',self.time,)
+            print(f'Sum Reward:',reward)
+            print(f'Health:',self.last_health)
+            print(f'Deaths:',self.died_count)
+            print(f'Rupees:',self.money)
+            print(f'Shells:',self.shells)
+            print(f'DestID:',dest)
+            print(f'-------------Rewards-------------')
+            print(f'Total:',reward1)
+            print(f'Explore:',exploration_reward,'--%',100 * (exploration_reward/reward1))
+            print(f'Healing:',heal_reward,'--%',100 * (heal_reward/reward1))
+            print(f'Shells:',shell_reward,'--%',100 * (shell_reward/reward1))
+            print(f'Rupees:',money_reward,'--%',100 * (money_reward/reward1))
+            print(f'Held Item:',held_item_reward,'--%',100 * (held_item_reward/reward1))
+            print(f'-------------Negatives-------------')
+            print(f'Total:',neg_reward)
+            print(f'Intro:',self.intro_reward,'--%',100 * (self.intro_reward/neg_reward))
+            print(f'Dest_status:',self.dest_reward,'--%',100 * (self.dest_reward/neg_reward))
+            print(f'Deaths:',death_reward, '--%', 100 * (death_reward/neg_reward))
+            # print(f'-------------Test-------------')
+            # print(f'Last Health:',self.last_health)
+            # print(f'Current Health:',cur_health)
+            # print(f'Heal Amount',self.heal_amount)
+
         # Subtract previous reward
         # TODO: Don't record large cumulative rewards in the first place
         if self.last_reward is None:
@@ -182,7 +205,7 @@ class LinksAwakenV1(LinksAwaken):
             self.last_reward = nxt_reward
 
         info = {}
-        done = self.time >= self.max_episode_steps
+        done = byte >= 1 or self.time >= self.max_episode_steps
         if done:
             print(f'----------reset----------')
             info = {
@@ -192,17 +215,18 @@ class LinksAwakenV1(LinksAwaken):
                     'rupees': money_reward,
                     'shells': shell_reward,
                     'dung_keys': key_reward,
-                    'map_addr': tile_reward,
-                    #'held_items': held_item_reward,
+                    'map_addr': self.dest_reward,
+                    'held_items': held_item_reward,
                     'deaths': death_reward,
                     'healing': self.total_healing
                 },
-                'maps_explored': self.seen_coords,
+                'maps_explored': self.seen_tile,
                 'deaths': self.died_count,
                 'money': self.money,
-                'exploration': self.map_status,
+                'exploration': self.seen_coords,
                 'dung_keys': self.keys,
-                'shells': self.shells
+                'shells': self.shells,
+                'intro': self.intro_reward
             }
 
         return self.render()[::2, ::2], reward, done, done, info
