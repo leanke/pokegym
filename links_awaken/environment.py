@@ -158,7 +158,7 @@ class LinksAwakenV1(LinksAwaken):
         # over world/dung reward
         dest, value = ram.dest_status(self.game)
         if value == 1: # 1 = dungeon status
-            self.dest_reward += -0.01
+            self.dest_reward += -0.001
         else:
             self.dest_reward += 0
 
