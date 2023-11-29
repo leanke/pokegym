@@ -13,6 +13,8 @@ Each screen status is represented by a byte, which is a combination of the follo
 10 : changed from initial status (for example sword taken on the beach or dungeon opened with key)
 20 : owl talked
 80 : visited
+A0 : visited and owl
+B0 : visited, owl, and changed
 For example, visiting the first dungeon's screen (80) and opening it with the key (10) would put that byte at 90 
 '''
 MAP_STATUS = range(0xD800, 0xD8FF) # World map status
@@ -57,6 +59,8 @@ KEY3 = 0xDB12
 KEY4 = 0xDB13
 KEY_STOP = 0xDB14
 
+INTRO = 0xDB97
+
 FLIPPERS = 0xDB0C # Flippers (01=have)
 POTION = 0xDB0D # Potion (01=have) 
 ITEM_TRADE = 0xDB0E # Current item in trading game (01=Yoshi, 0E=magnifier) 
@@ -88,6 +92,7 @@ MAX_BOMB = 0xDB77 # Max bombs
 MAX_ARROW = 0xDB78 # Max arrows 
 DUNG_COORD = 0xDBAE # Your position on the 8x8 dungeon grid
 NUM_KEY = 0xDBD0 # Quantity of keys in posession 
+MAPTILE = 0xDB54
 
 ITEMS_MAP = {
     0x01: 'SWORD',
@@ -158,6 +163,12 @@ def hp_fraction(game):
         return 0
     return hp_sum / max_hp_sum
 
+def intro(game):
+    byte = game.get_memory_value(INTRO)
+    if byte == 198:
+         return 1
+    return 0
+
 def read_inv(game):
     inventory = []
     for address in INV_ADDRESSES:
@@ -183,7 +194,8 @@ def death_count(game):
 
 def map_explore(game):
     caught_bytes = [game.get_memory_value(addr) for addr in MAP_STATUS]
-    return sum([bit_count(b) for b in caught_bytes])
+    #return sum([bit_count(b) for b in caught_bytes])
+    return caught_bytes
 
 def secret_shell(game):
     shell = game.get_memory_value(SHELLS)
@@ -197,6 +209,10 @@ def read_held_items(game):
     slot_a = game.get_memory_value(SLOTA)
     slot_b = game.get_memory_value(SLOTB)
     return slot_a, slot_b
+
+def map_tile(game):
+    tile = game.get_memory_value(MAPTILE)
+    return tile
 
 def dest_status(game):
     dest1_status = {

@@ -77,6 +77,7 @@ class LinksAwakenV1(LinksAwaken):
         self.map_status = 0
         self.seen_coords = set()
         self.seen_maps = set()
+        self.seen_tile = set()
         self.keys = 0
         self.total_healing = 0
         self.last_health = 0
@@ -85,6 +86,7 @@ class LinksAwakenV1(LinksAwaken):
         self.slot_b = 0
         self.held_item = 0
         self.shells = 0
+        self.intro_reward = 0
 
         return self.render()[::2, ::2], {}
 
@@ -93,13 +95,18 @@ class LinksAwakenV1(LinksAwaken):
         self.time += 1
 
         #map status
-        self.map_status = ram.map_explore(self.game)
-        map_reward = self.map_status / 16
+        # self.map_status = ram.map_explore(self.game)
+        # map_reward = self.map_status * 1
+
+        #map tile address
+        tile = ram.map_tile(self.game)
+        self.seen_tile.add((tile))
+        tile_reward = 2 * len(self.seen_tile)
 
         # explore reward
         x, y  = ram.position(self.game)
         self.seen_coords.add((x, y))
-        exploration_reward = 0.1 * len(self.seen_coords)
+        exploration_reward = 1.0 * len(self.seen_coords)
 
         # Healing rewards
         self.last_health = ram.hp_fraction(self.game)
@@ -107,9 +114,9 @@ class LinksAwakenV1(LinksAwaken):
         if cur_health > self.last_health:
             if self.last_health > 0:
                 heal_amount = cur_health - self.last_health
-                if heal_amount > 1.0:
+                if heal_amount > 0.5:
                     print(f'healed: {heal_amount}')
-                #self.total_healing_rew += heal_amount * .5
+                self.total_healing += heal_amount * .5
 
         #death rewards
         self.died_count = ram.death_count(self.game)
@@ -118,14 +125,20 @@ class LinksAwakenV1(LinksAwaken):
             self.died_count += 1
 
 
-        death_reward = -0.05 * self.died_count
+        death_reward = -0.0 * self.died_count
+
+        #intro screen
+        byte = ram.intro(self.game)
+        if byte >= 1:
+            self.intro_reward = -20
+        
 
         # money reward
         self.money = ram.read_rupees(self.game)
         money = ram.read_rupees(self.game)
         if money > self.money:
             self.money += 1
-        money_reward = 0.05 * self.money
+        money_reward = 0.01 * self.money
 
         # dungeon keys reward
         self.keys = ram.dung_keys(self.game)
@@ -143,20 +156,21 @@ class LinksAwakenV1(LinksAwaken):
         reward_a = 0  # Initialize reward_a to 0
         reward_b = 0  # Initialize reward_b to 0
         if ram.ITEMS_MAP.get(slot_a) in ['SWORD', 'SHIELD']:
-            reward_a = 1
+            reward_a = 10
         if ram.ITEMS_MAP.get(slot_b) in ['SWORD', 'SHIELD']:
-            reward_b = 1
+            reward_b = 10
         held_item = reward_a + reward_b 
         held_item_reward = held_item 
 
         # test
         dest = ram.dest_status(self.game)
+
         # sum reward
-        reward = self.reward_scale * (shell_reward + money_reward + death_reward + exploration_reward + key_reward + map_reward)
+        reward = self.reward_scale * (exploration_reward + self.intro_reward + tile_reward + self.total_healing + shell_reward + money_reward + death_reward + key_reward) # + exploration_reward + held_item_reward
 
         #print rewards
-        print(f'Shells:',self.shells, 'Deaths:',self.died_count, 'Rupees:',self.money, 'HP:',self.last_health, 'Total Reward:',reward)
-        print(f'DestID:', dest)
+        print(f'Staps:',self.time,'Deaths:',self.died_count,' Rupees:',self.money,' Total:',reward)
+        print(f'intro:',self.intro_reward,'Tile:',tile_reward,' DestID:',dest)
         # Subtract previous reward
         # TODO: Don't record large cumulative rewards in the first place
         if self.last_reward is None:
@@ -178,9 +192,10 @@ class LinksAwakenV1(LinksAwaken):
                     'rupees': money_reward,
                     'shells': shell_reward,
                     'dung_keys': key_reward,
-                    'map_status': map_reward,
-                    'held_items': held_item_reward,
-                    'deaths': death_reward
+                    'map_addr': tile_reward,
+                    #'held_items': held_item_reward,
+                    'deaths': death_reward,
+                    'healing': self.total_healing
                 },
                 'maps_explored': self.seen_coords,
                 'deaths': self.died_count,

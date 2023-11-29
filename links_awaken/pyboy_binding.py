@@ -40,7 +40,7 @@ class Select:
     RELEASE = WindowEvent.RELEASE_BUTTON_SELECT
 
 # TODO: Add start button to actions when we need it
-ACTIONS = (Down, Left, Right, Up, A, B) # , Start, Select
+ACTIONS = (Down, Left, Right, Up, A, B, Start) # , Start, Select
 
 def make_env(gb_path, headless=True, quiet=False, **kwargs):
     game = PyBoy(
@@ -54,7 +54,7 @@ def make_env(gb_path, headless=True, quiet=False, **kwargs):
     screen = game.botsupport_manager().screen()
 
     if not headless:
-        game.set_emulation_speed(6)
+        game.set_emulation_speed(8)
 
     return game, screen
 
