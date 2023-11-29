@@ -203,7 +203,7 @@ def dest_status(game):
         0x00: 'dungeon',
         0x01: 'Overworld',
         0x02: 'SideView',
-        0xFF: 'Unknown',
+        0xFF: 'Forest?',
         }
     dest1 = game.get_memory_value(DEST1)
     status = dest1_status.get(dest1, 'Unknown')
