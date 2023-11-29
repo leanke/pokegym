@@ -101,7 +101,7 @@ class LinksAwakenV1(LinksAwaken):
         # explore reward
         x, y, tile  = ram.position(self.game)
         self.seen_coords.add((x, y, tile))
-        exploration_reward = 0.05 * len(self.seen_coords)
+        exploration_reward = 1.0 * len(self.seen_coords)
 
         # Healing rewards
         cur_health = ram.hp_fraction(self.game)
