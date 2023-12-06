@@ -21,10 +21,10 @@ def play():
 class LinksAwaken:
     def __init__(self, rom_path='loz.gb',
             state_path=None, headless=False, quiet=False,
-            disable_input=True, sound=False, sound_emulated=False):
+            disable_input=True, sound=False, sound_emulated=False, frame_stack=3):
         '''Creates a LinksAwaken environment'''
         if state_path is None:
-            state_path = __file__.rstrip('environment.py') + 'sword.state'
+            state_path = __file__.rstrip('framestack.py') + 'sword.state'
 
         self.game, self.screen = make_env(
             rom_path, headless, quiet,
@@ -34,11 +34,13 @@ class LinksAwaken:
         )
         self.initial_state = open_state_file(state_path)
         self.headless = headless
+        self.frame_stack = frame_stack
 
+        # Modify observation space to include frame stack
         R, C = self.screen.raw_screen_buffer_dims()
         self.observation_space = spaces.Box(
             low=0, high=255, dtype=np.uint8,
-            shape=(R//2, C//2, 3),
+            shape=(R//2, C//2, 1 * frame_stack),  # Stack frames along the last dimension
         )
         self.action_space = spaces.Discrete(len(ACTIONS))
 
@@ -58,16 +60,20 @@ class LinksAwaken:
         self.game.stop(False)
 
 class LinksAwakenV1(LinksAwaken):
-    def __init__(self, rom_path='loz.gb',
-            state_path=None, headless=True, quiet=False):
+    def __init__(self, rom_path='loz.gb', state_path=None, headless=True, quiet=False):
         super().__init__(rom_path, state_path, headless, quiet)
         if state_path is None:
             state_path = __file__.rstrip('environment.py') + 'sword.state'
-        
-
+    
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
         '''Resets the game. Seeding is NOT supported'''
         load_pyboy_state(self.game, self.initial_state)
+
+            # Initialize frame stack with the first frame
+        self.frame_stack_buffer = np.zeros((self.observation_space.shape[-1], *self.observation_space.shape[:-1]))
+        self.frame_stack_buffer[-3:, :, :] = self.render()[::2, ::2].transpose(2, 0, 1)
+
+        # Additional reset logic remains unchanged
 
         self.time = 0
         self.max_episode_steps = max_episode_steps
@@ -92,11 +98,17 @@ class LinksAwakenV1(LinksAwaken):
         self.held_item = 0
 
 
-        return self.render()[::2, ::2], {}
+        return self.frame_stack_buffer.transpose(1, 2, 0), {}
 
     def step(self, action):
         run_action_on_emulator(self.game, self.screen, ACTIONS[action], self.headless)
         self.time += 1
+
+        # Update frame stack with the latest frame
+        self.frame_stack_buffer[:-3, :, :] = self.frame_stack_buffer[3:, :, :]
+        self.frame_stack_buffer[-3:, :, :] = self.render()[::2, ::2].transpose(2, 0, 1)
+
+        # Additional step logic remains unchanged
 
         # explore reward
         x, y, tile  = ram.position(self.game)
@@ -119,7 +131,7 @@ class LinksAwakenV1(LinksAwaken):
         died_count = ram.death_count(self.game)
         if died_count > self.died_count:
             self.died_count += 1
-        death_reward = -0.05 * self.died_count
+        death_reward = -0.1 * self.died_count
 
         #intro screen
         byte = ram.intro(self.game)
@@ -228,10 +240,4 @@ class LinksAwakenV1(LinksAwaken):
                 'health': self.last_health
             }
 
-        return self.render()[::2, ::2], reward, done, done, info
-
-
-
-
-
-###########################################################################################
+        return self.frame_stack_buffer.transpose(1, 2, 0), reward, done, done, info

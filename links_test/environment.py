@@ -119,7 +119,7 @@ class LinksAwakenV1(LinksAwaken):
         died_count = ram.death_count(self.game)
         if died_count > self.died_count:
             self.died_count += 1
-        death_reward = -0.05 * self.died_count
+        death_reward = -0.1 * self.died_count
 
         #intro screen
         byte = ram.intro(self.game)
@@ -235,3 +235,4 @@ class LinksAwakenV1(LinksAwaken):
 
 
 ###########################################################################################
+
