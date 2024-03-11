@@ -1,9 +1,12 @@
 from pdb import set_trace as T
 from io import BytesIO
+import numpy as np
 
 from pyboy import PyBoy
 from pyboy import logger
 from pyboy.utils import WindowEvent
+from pokegym import ram_map
+
 
 logger.logger.setLevel('ERROR')
 
@@ -40,8 +43,15 @@ class Select:
     PRESS = WindowEvent.PRESS_BUTTON_SELECT
     RELEASE = WindowEvent.RELEASE_BUTTON_SELECT
 
+class Cut:
+    PRESS = WindowEvent.PRESS_BUTTON_START
+    RELEASE = WindowEvent.RELEASE_BUTTON_START
+
+
+
+
 # TODO: Add start button to actions when we need it
-ACTIONS = (Down, Left, Right, Up, A, B, Start, Select)
+ACTIONS = (Down, Left, Right, Up, A, B, Start, Select) # Cut
 
 def make_env(gb_path, headless=True, quiet=False, **kwargs):
     gb_path='pokemon_red.gb'
@@ -77,19 +87,50 @@ def run_action_on_emulator(pyboy, screen, action,
     '''Sends actions to PyBoy'''
     press, release = action.PRESS, action.RELEASE
     pyboy.send_input(press)
+    # print(action)
+    if action == Cut:
+        # print('action was cut---------------------------------')
+        pressing(pyboy)
+    else:
+        if headless or fast_video:
+            pyboy._rendering(False)
 
-    if headless or fast_video:
-        pyboy._rendering(False)
+        frames = []
+        for i in range(frame_skip):
+            if i == 8: # Release button after 8 frames
+                pyboy.send_input(release)
+            if not fast_video: # Save every frame
+                frames.append(screen.screen_ndarray())
+            if i == frame_skip - 1:
+                pyboy._rendering(True)
+            pyboy.tick()
 
-    frames = []
-    for i in range(frame_skip):
-        if i == 8: # Release button after 8 frames
-            pyboy.send_input(release)
-        if not fast_video: # Save every frame
+        if fast_video: # Save only the last frame
             frames.append(screen.screen_ndarray())
-        if i == frame_skip - 1:
-            pyboy._rendering(True)
-        pyboy.tick()
 
-    if fast_video: # Save only the last frame
-        frames.append(screen.screen_ndarray())
+def pressing(pyboy):
+    # pyboy.send_input(WindowEvent.PRESS_BUTTON_START)
+    for i in range(24):
+        if i == 8:
+            pyboy.send_input(WindowEvent.RELEASE_BUTTON_START)
+            # print('1')
+    pyboy.send_input(WindowEvent.PRESS_ARROW_DOWN)
+    for i in range(24):
+        if i == 8:
+            pyboy.send_input(WindowEvent.RELEASE_ARROW_DOWN)
+            # print('2')
+    pyboy.send_input(WindowEvent.PRESS_BUTTON_A)
+    for i in range(24):
+        if i == 8:
+            pyboy.send_input(WindowEvent.RELEASE_BUTTON_A)
+            # print('3')
+    pyboy.send_input(WindowEvent.PRESS_BUTTON_A)
+    for i in range(24):
+        if i == 8:
+            pyboy.send_input(WindowEvent.RELEASE_BUTTON_A)
+            # print('4')
+    pyboy.send_input(WindowEvent.PRESS_BUTTON_A)
+    for i in range(24):
+        if i == 8:
+            pyboy.send_input(WindowEvent.RELEASE_BUTTON_A)
+            # print('5')

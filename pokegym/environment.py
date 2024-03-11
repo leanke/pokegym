@@ -188,7 +188,33 @@ class Environment(Base):
         self.is_dead = False
         self.last_map = -1
         self.log = True
+        self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         # self.seen_coords = set() ## moved from reset
+
+        # #for reseting at 7
+        # self.prev_map_n = None
+        # self.max_events = 0
+        # self.max_level_sum = 0
+        # self.max_opponent_level = 0
+        # self.seen_coords = set()
+        # self.seen_maps = set()
+        # self.total_healing = 0
+        # self.last_hp = 1.0
+        # self.last_party_size = 1
+        # self.hm_count = 0
+        # self.cut = 0
+        # self.used_cut = 0
+        # self.cut_coords = {}
+        # self.cut_tiles = {} # set([])
+        # self.cut_state = deque(maxlen=3)
+        # self.seen_start_menu = 0
+        # self.seen_pokemon_menu = 0
+        # self.seen_stats_menu = 0
+        # self.seen_bag_menu = 0
+        # self.seen_cancel_bag_menu = 0
+        # self.seen_pokemon = np.zeros(152, dtype=np.uint8)
+        # self.caught_pokemon = np.zeros(152, dtype=np.uint8)
+        # self.moves_obtained = np.zeros(0xA5, dtype=np.uint8)
         
     def update_pokedex(self):
         for i in range(0xD30A - 0xD2F7):
@@ -270,7 +296,7 @@ class Environment(Base):
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
         """Resets the game. Seeding is NOT supported"""
-        if self.reset_count % 7 == 0:
+        if self.reset_count % 7 == 0: ## resets every 5 to 0 moved seen_coords to init
             load_pyboy_state(self.game, self.load_first_state())
         else:
             load_pyboy_state(self.game, self.load_last_state())
@@ -293,31 +319,30 @@ class Environment(Base):
         self.reward_scale = reward_scale
         self.last_reward = None
 
-        if self.reset_count % 7 == 0: ## resets every 5 to 0 moved seen_coords to init
-            self.prev_map_n = None
-            self.max_events = 0
-            self.max_level_sum = 0
-            self.max_opponent_level = 0
-            self.seen_coords = set()
-            self.seen_maps = set()
-            self.total_healing = 0
-            self.last_hp = 1.0
-            self.last_party_size = 1
-            self.hm_count = 0
-            self.cut = 0
-            self.used_cut = 0
-            self.cut_coords = {}
-            self.cut_tiles = {} # set([])
-            self.cut_state = deque(maxlen=3)
-            self.seen_start_menu = 0
-            self.seen_pokemon_menu = 0
-            self.seen_stats_menu = 0
-            self.seen_bag_menu = 0
-            self.seen_cancel_bag_menu = 0
-            self.seen_pokemon = np.zeros(152, dtype=np.uint8)
-            self.caught_pokemon = np.zeros(152, dtype=np.uint8)
-            self.moves_obtained = np.zeros(0xA5, dtype=np.uint8)
-        
+        self.prev_map_n = None
+        self.max_events = 0
+        self.max_level_sum = 0
+        self.max_opponent_level = 0
+        self.seen_coords = set()
+        self.seen_maps = set()
+        self.total_healing = 0
+        self.last_hp = 1.0
+        self.last_party_size = 1
+        self.hm_count = 0
+        self.cut = 0
+        self.used_cut = 0
+        self.cut_coords = {}
+        self.cut_tiles = {} # set([])
+        self.cut_state = deque(maxlen=3)
+        self.seen_start_menu = 0
+        self.seen_pokemon_menu = 0
+        self.seen_stats_menu = 0
+        self.seen_bag_menu = 0
+        self.seen_cancel_bag_menu = 0
+        self.seen_pokemon = np.zeros(152, dtype=np.uint8)
+        self.caught_pokemon = np.zeros(152, dtype=np.uint8)
+        self.moves_obtained = np.zeros(0xA5, dtype=np.uint8)
+
         return self.render(), {}
 
     def step(self, action, fast_video=True):
@@ -352,7 +377,7 @@ class Environment(Base):
         party_size_constant = party_size == self.last_party_size
         if hp_delta > 0 and party_size_constant and not self.is_dead:
             self.total_healing += hp_delta
-        if hp <= 0 and self.last_hp > 0:
+        if hp <= 0.2 and self.last_hp > 0:
             self.death_count += 1
             self.is_dead = True
         elif hp > 0.01:  # TODO: Check if this matters
