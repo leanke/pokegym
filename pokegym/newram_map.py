@@ -173,156 +173,6 @@ def mtmoon(game):
               Got_Dome_Fossil, Got_Helix_Fossil])
 
 def routes(game):
-  # "0xD7C3-2": "Beat Route 3 Trainer 0",
-  # "0xD7C3-3": "Beat Route 3 Trainer 1",
-  # "0xD7C3-4": "Beat Route 3 Trainer 2",
-  # "0xD7C3-5": "Beat Route 3 Trainer 3",
-  # "0xD7C3-6": "Beat Route 3 Trainer 4",
-  # "0xD7C3-7": "Beat Route 3 Trainer 5",
-  # "0xD7C4-0": "Beat Route 3 Trainer 6",
-  # "0xD7C4-1": "Beat Route 3 Trainer 7",
-  # "0xD7C5-2": "Beat Route 4 Trainer 0",
-  # "0xD7EF-1": "Beat Route24 Rocket",
-  # "0xD7EF-2": "Beat Route 24 Trainer 0",
-  # "0xD7EF-3": "Beat Route 24 Trainer 1",
-  # "0xD7EF-4": "Beat Route 24 Trainer 2",
-  # "0xD7EF-5": "Beat Route 24 Trainer 3",
-  # "0xD7EF-6": "Beat Route 24 Trainer 4",
-  # "0xD7EF-7": "Beat Route 24 Trainer 5",
-  # "0xD7F1-1": "Beat Route 25 Trainer 0",
-  # "0xD7F1-2": "Beat Route 25 Trainer 1",
-  # "0xD7F1-3": "Beat Route 25 Trainer 2",
-  # "0xD7F1-4": "Beat Route 25 Trainer 3",
-  # "0xD7F1-5": "Beat Route 25 Trainer 4",
-  # "0xD7F1-6": "Beat Route 25 Trainer 5",
-  # "0xD7F1-7": "Beat Route 25 Trainer 6",
-  # "0xD7F2-0": "Beat Route 25 Trainer 7",
-  # "0xD7F2-1": "Beat Route 25 Trainer 8",
-  # "0xD7CF-1": "Beat Route 9 Trainer 0",
-  # "0xD7CF-2": "Beat Route 9 Trainer 1",
-  # "0xD7CF-3": "Beat Route 9 Trainer 2",
-  # "0xD7CF-4": "Beat Route 9 Trainer 3",
-  # "0xD7CF-5": "Beat Route 9 Trainer 4",
-  # "0xD7CF-6": "Beat Route 9 Trainer 5",
-  # "0xD7CF-7": "Beat Route 9 Trainer 6",
-  # "0xD7D0-0": "Beat Route 9 Trainer 7",
-  # "0xD7D0-1": "Beat Route 9 Trainer 8",
-  # "0xD7C9-1": "Beat Route 6 Trainer 0",
-  # "0xD7C9-2": "Beat Route 6 Trainer 1",
-  # "0xD7C9-3": "Beat Route 6 Trainer 2",
-  # "0xD7C9-4": "Beat Route 6 Trainer 3",
-  # "0xD7C9-5": "Beat Route 6 Trainer 4",
-  # "0xD7C9-6": "Beat Route 6 Trainer 5",
-  # "0xD7D5-1": "Beat Route 11 Trainer 0",
-  # "0xD7D5-2": "Beat Route 11 Trainer 1",
-  # "0xD7D5-3": "Beat Route 11 Trainer 2",
-  # "0xD7D5-4": "Beat Route 11 Trainer 3",
-  # "0xD7D5-5": "Beat Route 11 Trainer 4",
-  # "0xD7D5-6": "Beat Route 11 Trainer 5",
-  # "0xD7D5-7": "Beat Route 11 Trainer 6",
-  # "0xD7D6-0": "Beat Route 11 Trainer 7",
-  # "0xD7D6-1": "Beat Route 11 Trainer 8",
-  # "0xD7D6-2": "Beat Route 11 Trainer 9",
-  # "0xD7CD-1": "Beat Route 8 Trainer 0",
-  # "0xD7CD-2": "Beat Route 8 Trainer 1",
-  # "0xD7CD-3": "Beat Route 8 Trainer 2",
-  # "0xD7CD-4": "Beat Route 8 Trainer 3",
-  # "0xD7CD-5": "Beat Route 8 Trainer 4",
-  # "0xD7CD-6": "Beat Route 8 Trainer 5",
-  # "0xD7CD-7": "Beat Route 8 Trainer 6",
-  # "0xD7CE-0": "Beat Route 8 Trainer 7",
-  # "0xD7CE-1": "Beat Route 8 Trainer 8",
-  # "0xD7D1-1": "Beat Route 10 Trainer 0",
-  # "0xD7D1-2": "Beat Route 10 Trainer 1",
-  # "0xD7D1-3": "Beat Route 10 Trainer 2",
-  # "0xD7D1-4": "Beat Route 10 Trainer 3",
-  # "0xD7D1-5": "Beat Route 10 Trainer 4",
-  # "0xD7D1-6": "Beat Route 10 Trainer 5",
-  # "0xD7D7-2": "Beat Route 12 Trainer 0",
-  # "0xD7D7-3": "Beat Route 12 Trainer 1",
-  # "0xD7D7-4": "Beat Route 12 Trainer 2",
-  # "0xD7D7-5": "Beat Route 12 Trainer 3",
-  # "0xD7D7-6": "Beat Route 12 Trainer 4",
-  # "0xD7D7-7": "Beat Route 12 Trainer 5",
-  # "0xD7D8-0": "Beat Route 12 Trainer 6",
-  # "0xD7DF-1": "Beat Route 16 Trainer 0",
-  # "0xD7DF-2": "Beat Route 16 Trainer 1",
-  # "0xD7DF-3": "Beat Route 16 Trainer 2",
-  # "0xD7DF-4": "Beat Route 16 Trainer 3",
-  # "0xD7DF-5": "Beat Route 16 Trainer 4",
-  # "0xD7DF-6": "Beat Route 16 Trainer 5",
-  # "0xD7E1-1": "Beat Route 17 Trainer 0",
-  # "0xD7E1-2": "Beat Route 17 Trainer 1",
-  # "0xD7E1-3": "Beat Route 17 Trainer 2",
-  # "0xD7E1-4": "Beat Route 17 Trainer 3",
-  # "0xD7E1-5": "Beat Route 17 Trainer 4",
-  # "0xD7E1-6": "Beat Route 17 Trainer 5",
-  # "0xD7E1-7": "Beat Route 17 Trainer 6",
-  # "0xD7E2-0": "Beat Route 17 Trainer 7",
-  # "0xD7E2-1": "Beat Route 17 Trainer 8",
-  # "0xD7E2-2": "Beat Route 17 Trainer 9",
-  # "0xD7D9-1": "Beat Route 13 Trainer 0",
-  # "0xD7D9-2": "Beat Route 13 Trainer 1",
-  # "0xD7D9-3": "Beat Route 13 Trainer 2",
-  # "0xD7D9-4": "Beat Route 13 Trainer 3",
-  # "0xD7D9-5": "Beat Route 13 Trainer 4",
-  # "0xD7D9-6": "Beat Route 13 Trainer 5",
-  # "0xD7D9-7": "Beat Route 13 Trainer 6",
-  # "0xD7DA-0": "Beat Route 13 Trainer 7",
-  # "0xD7DA-1": "Beat Route 13 Trainer 8",
-  # "0xD7DA-2": "Beat Route 13 Trainer 9",
-  # "0xD7DB-1": "Beat Route 14 Trainer 0",
-  # "0xD7DB-2": "Beat Route 14 Trainer 1",
-  # "0xD7DB-3": "Beat Route 14 Trainer 2",
-  # "0xD7DB-4": "Beat Route 14 Trainer 3",
-  # "0xD7DB-5": "Beat Route 14 Trainer 4",
-  # "0xD7DB-6": "Beat Route 14 Trainer 5",
-  # "0xD7DB-7": "Beat Route 14 Trainer 6",
-  # "0xD7DC-0": "Beat Route 14 Trainer 7",
-  # "0xD7DC-1": "Beat Route 14 Trainer 8",
-  # "0xD7DC-2": "Beat Route 14 Trainer 9",
-  # "0xD7DD-1": "Beat Route 15 Trainer 0",
-  # "0xD7DD-2": "Beat Route 15 Trainer 1",
-  # "0xD7DD-3": "Beat Route 15 Trainer 2",
-  # "0xD7DD-4": "Beat Route 15 Trainer 3",
-  # "0xD7DD-5": "Beat Route 15 Trainer 4",
-  # "0xD7DD-6": "Beat Route 15 Trainer 5",
-  # "0xD7DD-7": "Beat Route 15 Trainer 6",
-  # "0xD7DE-0": "Beat Route 15 Trainer 7",
-  # "0xD7DE-1": "Beat Route 15 Trainer 8",
-  # "0xD7DE-2": "Beat Route 15 Trainer 9",
-  # "0xD7E3-1": "Beat Route 18 Trainer 0",
-  # "0xD7E3-2": "Beat Route 18 Trainer 1",
-  # "0xD7E3-3": "Beat Route 18 Trainer 2",
-  # "0xD7E5-1": "Beat Route 19 Trainer 0",
-  # "0xD7E5-2": "Beat Route 19 Trainer 1",
-  # "0xD7E5-3": "Beat Route 19 Trainer 2",
-  # "0xD7E5-4": "Beat Route 19 Trainer 3",
-  # "0xD7E5-5": "Beat Route 19 Trainer 4",
-  # "0xD7E5-6": "Beat Route 19 Trainer 5",
-  # "0xD7E5-7": "Beat Route 19 Trainer 6",
-  # "0xD7E6-0": "Beat Route 19 Trainer 7",
-  # "0xD7E6-1": "Beat Route 19 Trainer 8",
-  # "0xD7E6-2": "Beat Route 19 Trainer 9",
-  # "0xD7E7-1": "Beat Route 20 Trainer 0",
-  # "0xD7E7-2": "Beat Route 20 Trainer 1",
-  # "0xD7E7-3": "Beat Route 20 Trainer 2",
-  # "0xD7E7-4": "Beat Route 20 Trainer 3",
-  # "0xD7E7-5": "Beat Route 20 Trainer 4",
-  # "0xD7E7-6": "Beat Route 20 Trainer 5",
-  # "0xD7E7-7": "Beat Route 20 Trainer 6",
-  # "0xD7E8-0": "Beat Route 20 Trainer 7",
-  # "0xD7E8-1": "Beat Route 20 Trainer 8",
-  # "0xD7E8-2": "Beat Route 20 Trainer 9",
-  # "0xD7E9-1": "Beat Route 21 Trainer 0",
-  # "0xD7E9-2": "Beat Route 21 Trainer 1",
-  # "0xD7E9-3": "Beat Route 21 Trainer 2",
-  # "0xD7E9-4": "Beat Route 21 Trainer 3",
-  # "0xD7E9-5": "Beat Route 21 Trainer 4",
-  # "0xD7E9-6": "Beat Route 21 Trainer 5",
-  # "0xD7E9-7": "Beat Route 21 Trainer 6",
-  # "0xD7EA-0": "Beat Route 21 Trainer 7",
-  # "0xD7EA-1": "Beat Route 21 Trainer 8",
   route3_0 = TRAINER * int(read_bit(game, 0xD7C3, 2))
   route3_1 = TRAINER * int(read_bit(game, 0xD7C3, 3))
   route3_2 = TRAINER * int(read_bit(game, 0xD7C3, 4))
@@ -532,7 +382,7 @@ def misc(game):
   one = TASK * int(read_bit(game, 0xD7C6, 7))
   two = TASK * int(read_bit(game, 0xD747, 3))
   three = TASK * int(read_bit(game, 0xD74A, 2))
-#   four = TASK * int(read_bit(game, 0xD754, 0))
+  four = BAD * int(read_bit(game, 0xD754, 0))
   five = TASK * int(read_bit(game, 0xD754, 1))
   six = TASK * int(read_bit(game, 0xD771, 1))
   seven = TASK * int(read_bit(game, 0xD77E, 2))
@@ -549,10 +399,6 @@ def misc(game):
   return sum([one, two, three, five, six, seven, eight, nine, ten, eleven, twelve, thirteen, fourteen, fifteen, sixteen])
 
 def snorlax(game):
-  # "0xD7D8-6": "Fight Route12 Snorlax",
-  # "0xD7D8-7": "Beat Route12 Snorlax",
-  # "0xD7E0-0": "Fight Route16 Snorlax",
-  # "0xD7E0-1": "Beat Route16 Snorlax",
   route12_snorlax_fight = POKEMON * int(read_bit(game, 0xD7D8, 6))
   route12_snorlax_beat = POKEMON * int(read_bit(game, 0xD7D8, 7))
   route16_snorlax_fight = POKEMON * int(read_bit(game, 0xD7E0, 0))
@@ -561,31 +407,6 @@ def snorlax(game):
   return sum([route12_snorlax_fight, route12_snorlax_beat, route16_snorlax_fight, route16_snorlax_beat])
 
 def hmtm(game):
-  # "0xD803-0": "Got Hm01",
-  # "0xD7E0-6": "Got Hm02",
-  # "0xD857-0": "Got Hm03",
-  # "0xD78E-0": "Got Hm04",
-  # "0xD7C2-0": "Got Hm05",
-
-  # "0xD755-6": "Got Tm34",
-  # "0xD75E-6": "Got Tm11",  
-  # "0xD777-0": "Got Tm41",
-  # "0xD778-4": "Got Tm13",
-  # "0xD778-5": "Got Tm48",
-  # "0xD778-6": "Got Tm49",
-  # "0xD778-7": "Got Tm18",
-  # "0xD77C-0": "Got Tm21",
-  # "0xD792-0": "Got Tm06",
-  # "0xD773-6": "Got Tm24",
-  # "0xD7BD-0": "Got Tm29",
-  # "0xD7AF-0": "Got Tm31",
-  # "0xD7A1-7": "Got Tm35",
-  # "0xD826-7": "Got Tm36",
-  # "0xD79A-0": "Got Tm38",
-  # "0xD751-0": "Got Tm27",
-  # "0xD74C-1": "Got Tm42",
-  # "0xD7B3-0": "Got Tm46",
-  # "0xD7D7-0": "Got Tm39",
   hm01 = HM * int(read_bit(game, 0xD803, 0))
   hm02 = HM * int(read_bit(game, 0xD7E0, 6))
   hm03 = HM * int(read_bit(game, 0xD857, 0))
@@ -616,12 +437,6 @@ def hmtm(game):
   return sum([hm01, hm02, hm03, hm04, hm05, tm34, tm11, tm41, tm13, tm48, tm49, tm18, tm21, tm06, tm24, tm29, tm31, tm35, tm36, tm38, tm27, tm42, tm46, tm39])
 
 def bill(game):
-  # "0xD7F1-0": "Met Bill",
-  # "0xD7F2-3": "Used Cell Separator On Bill",
-  # "0xD7F2-4": "Got Ss Ticket",
-  # "0xD7F2-5": "Met Bill 2",
-  # "0xD7F2-6": "Bill Said Use Cell Separator",
-  # "0xD7F2-7": "Left Bills House After Helping",
   met_bill = BILL_CAPT * int(read_bit(game, 0xD7F1, 0))
   used_cell_separator_on_bill = BILL_CAPT * int(read_bit(game, 0xD7F2, 3))
   got_ss_ticket = BILL_CAPT * int(read_bit(game, 0xD7F2, 4))
@@ -633,17 +448,6 @@ def bill(game):
   return sum([met_bill, used_cell_separator_on_bill, got_ss_ticket, met_bill_2, bill_said_use_cell_separator, left_bills_house_after_helping])
 
 def oak(game):
-  # "0xD74B-7": "Oak Appeared In Pallet",
-  # "0xD747-0": "Followed Oak Into Lab",
-  # "0xD74B-1": "Oak Asked To Choose Mon",
-  # "0xD74B-2": "Got Starter",
-  # "0xD74B-0": "Followed Oak Into Lab 2",
-  # "0xD74B-5": "Got Pokedex",
-  # "0xD74E-1": "Got Oaks Parcel",  
-  # "0xD747-6": "Pallet After Getting Pokeballs",
-  # "0xD74E-0": "Oak Got Parcel", 
-  # "0xD74B-4": "Got Pokeballs From Oak",
-  # "0xD74B-6": "Pallet After Getting Pokeballs 2",
   oak_appeared_in_pallet = TASK * int(read_bit(game, 0xD74B, 7))
   followed_oak_into_lab = TASK * int(read_bit(game, 0xD747, 0))
   oak_asked_to_choose_mon = TASK * int(read_bit(game, 0xD74B, 1))
@@ -660,18 +464,6 @@ def oak(game):
               got_oaks_parcel, pallet_after_getting_pokeballs, oak_got_parcel, got_pokeballs_from_oak, pallet_after_getting_pokeballs_2])
 
 def towns(game):
-  # "0xD74A-0": "Got Town Map",
-  # "0xD74A-1": "Entered Blues House",
-  # "0xD7F3-2": "Beat Viridian Forest Trainer 0",
-  # "0xD7F3-3": "Beat Viridian Forest Trainer 1",
-  # "0xD7F3-4": "Beat Viridian Forest Trainer 2",
-  # "0xD7EF-0": "Got Nugget",
-  # "0xD7F0-1": "Nugget Reward Available",
-  # "0xD75B-7": "Beat Cerulean Rocket Thief",
-  # "0xD75F-0": "Got Bicycle",
-  # "0xD771-6": "Seel Fan Boast",
-  # "0xD771-7": "Pikachu Fan Boast",
-  # "0xD76C-0": "Got Poke Flute",
   got_town_map = TASK * int(read_bit(game, 0xD74A, 0))
   entered_blues_house = TASK * int(read_bit(game, 0xD74A, 1))
   beat_viridian_forest_trainer_0 = TRAINER * int(read_bit(game, 0xD7F3, 2))
@@ -691,9 +483,6 @@ def towns(game):
     seel_fan_boast, pikachu_fan_boast, got_poke_flute])
 
 def lab(game):
-  # "0xD7A3-0": "Gave Fossil To Lab",
-  # "0xD7A3-1": "Lab Still Reviving Fossil",
-  # "0xD7A3-2": "Lab Handing Over Fossil Mon",
   gave_fossil_to_lab = TASK * int(read_bit(game, 0xD7A3, 0))
   lab_still_reviving_fossil = TASK * int(read_bit(game, 0xD7A3, 1))
   lab_handing_over_fossil_mon = TASK * int(read_bit(game, 0xD7A3, 2))
@@ -701,13 +490,6 @@ def lab(game):
   return sum([gave_fossil_to_lab, lab_still_reviving_fossil, lab_handing_over_fossil_mon])
 
 def mansion(game):
-  # "0xD847-1": "Beat Mansion 2 Trainer 0",
-  # "0xD849-1": "Beat Mansion 3 Trainer 0",
-  # "0xD849-2": "Beat Mansion 3 Trainer 1",
-  # "0xD84B-1": "Beat Mansion 4 Trainer 0",
-  # "0xD84B-2": "Beat Mansion 4 Trainer 1",
-  # "0xD796-0": "Mansion Switch On",
-  # "0xD798-1": "Beat Mansion 1 Trainer 0",
   beat_mansion_2_trainer_0 = TRAINER * int(read_bit(game, 0xD847, 1))
   beat_mansion_3_trainer_0 = TRAINER * int(read_bit(game, 0xD849, 1))
   beat_mansion_3_trainer_1 = TRAINER * int(read_bit(game, 0xD849, 2))
@@ -721,9 +503,6 @@ def mansion(game):
     beat_mansion_4_trainer_0, beat_mansion_4_trainer_1, mansion_switch_on, beat_mansion_1_trainer_0])
 
 def safari(game):
-  # "0xD78E-1": "Gave Gold Teeth",
-  # "0xD790-6": "Safari Game Over",
-  # "0xD790-7": "In Safari Zone",
   gave_gold_teeth = QUEST * int(read_bit(game, 0xD78E, 1))
   safari_game_over = EVENT * int(read_bit(game, 0xD790, 6))
   in_safari_zone = EVENT * int(read_bit(game, 0xD790, 7))
@@ -731,14 +510,6 @@ def safari(game):
   return sum([gave_gold_teeth, safari_game_over, in_safari_zone])
 
 def dojo(game):
-  # "0xD7B1-0": "Defeated Fighting Dojo",
-  # "0xD7B1-1": "Beat Karate Master",
-  # "0xD7B1-2": "Beat Fighting Dojo Trainer 0",
-  # "0xD7B1-3": "Beat Fighting Dojo Trainer 1",
-  # "0xD7B1-4": "Beat Fighting Dojo Trainer 2",
-  # "0xD7B1-5": "Beat Fighting Dojo Trainer 3",
-  # "0xD7B1-6": "Got Hitmonlee",
-  # "0xD7B1-7": "Got Hitmonchan",
   defeated_fighting_dojo = BAD * int(read_bit(game, 0xD7B1, 0))
   beat_karate_master = GYM_LEADER * int(read_bit(game, 0xD7B1, 1))
   beat_dojo_trainer_0 = TRAINER * int(read_bit(game, 0xD7B1, 2))
@@ -753,21 +524,6 @@ def dojo(game):
     got_hitmonlee, got_hitmonchan])
 
 def hideout(game):
-  # "0xD815-1": "Beat Rocket Hideout 1 Trainer 0",
-  # "0xD815-2": "Beat Rocket Hideout 1 Trainer 1",
-  # "0xD815-3": "Beat Rocket Hideout 1 Trainer 2",
-  # "0xD815-4": "Beat Rocket Hideout 1 Trainer 3",
-  # "0xD815-5": "Beat Rocket Hideout 1 Trainer 4",
-  # "0xD817-1": "Beat Rocket Hideout 2 Trainer 0",
-  # "0xD819-1": "Beat Rocket Hideout 3 Trainer 0",
-  # "0xD819-2": "Beat Rocket Hideout 3 Trainer 1",
-  # "0xD81B-2": "Beat Rocket Hideout 4 Trainer 0",
-  # "0xD81B-3": "Beat Rocket Hideout 4 Trainer 1",
-  # "0xD81B-4": "Beat Rocket Hideout 4 Trainer 2",
-  # "0xD81B-5": "Rocket Hideout 4 Door Unlocked",
-  # "0xD81B-6": "Rocket Dropped Lift Key",
-  # "0xD81B-7": "Beat Rocket Hideout Giovanni",
-  # "0xD77E-1": "Found Rocket Hideout",
   beat_rocket_hideout_1_trainer_0 = GYM_TRAINER * int(read_bit(game, 0xD815, 1))
   beat_rocket_hideout_1_trainer_1 = GYM_TRAINER * int(read_bit(game, 0xD815, 2))
   beat_rocket_hideout_1_trainer_2 = GYM_TRAINER * int(read_bit(game, 0xD815, 3))
@@ -790,24 +546,6 @@ def hideout(game):
     rocket_dropped_lift_key, beat_rocket_hideout_giovanni, found_rocket_hideout])
 
 def poke_tower(game):
-  # "0xD765-1": "Beat Pokemontower 3 Trainer 0",
-  # "0xD765-2": "Beat Pokemontower 3 Trainer 1",
-  # "0xD765-3": "Beat Pokemontower 3 Trainer 2",
-  # "0xD766-1": "Beat Pokemontower 4 Trainer 0",
-  # "0xD766-2": "Beat Pokemontower 4 Trainer 1",
-  # "0xD766-3": "Beat Pokemontower 4 Trainer 2",
-  # "0xD767-2": "Beat Pokemontower 5 Trainer 0",
-  # "0xD767-3": "Beat Pokemontower 5 Trainer 1",
-  # "0xD767-4": "Beat Pokemontower 5 Trainer 2",
-  # "0xD767-5": "Beat Pokemontower 5 Trainer 3",
-  # "0xD767-7": "In Purified Zone",
-  # "0xD768-1": "Beat Pokemontower 6 Trainer 0",
-  # "0xD768-2": "Beat Pokemontower 6 Trainer 1",
-  # "0xD768-3": "Beat Pokemontower 6 Trainer 2",
-  # "0xD768-7": "Beat Ghost Marowak",
-  # "0xD769-1": "Beat Pokemontower 7 Trainer 0",
-  # "0xD769-2": "Beat Pokemontower 7 Trainer 1",
-  # "0xD769-3": "Beat Pokemontower 7 Trainer 2",
   beat_pokemontower_3_trainer_0 = TRAINER * int(read_bit(game, 0xD765, 1))
   beat_pokemontower_3_trainer_1 = TRAINER * int(read_bit(game, 0xD765, 2))
   beat_pokemontower_3_trainer_2 = TRAINER * int(read_bit(game, 0xD765, 3))

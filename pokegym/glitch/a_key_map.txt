@@ -1,0 +1,8 @@
+<class 'pokegym.pyboy_binding.Select'>, 7, 
+<class 'pokegym.pyboy_binding.Start'>, 6, 
+<class 'pokegym.pyboy_binding.B'>, 5, 
+<class 'pokegym.pyboy_binding.A'>, 4, 
+<class 'pokegym.pyboy_binding.Up'>, 3, 
+<class 'pokegym.pyboy_binding.Right'>, 2, 
+<class 'pokegym.pyboy_binding.Left'>, 1, 
+<class 'pokegym.pyboy_binding.Down'>, 0, 
