@@ -22,7 +22,7 @@ from pokegym.pyboy_binding import (
     load_pyboy_state,
     run_action_on_emulator,
 )
-from pokegym import newram_map, game_map, data
+from pokegym import newram_map, data
 
 
 STATE_PATH = __file__.rstrip("environment.py") + "States/"
@@ -63,6 +63,7 @@ class Base:
         self.use_screen_memory = True
         self.screenshot_counter = 0
         self.env_id = Path(f'{str(uuid.uuid4())[:4]}')
+        self.s_path = __file__.rstrip("environment.py") + "Video/"
         self.reset_count = 0               
         self.explore_hidden_obj_weight = 1
 
@@ -173,10 +174,10 @@ class Base:
 
 class Environment(Base):
     def __init__(self,rom_path="pokemon_red.gb",state_path=None,headless=True,save_video=False,quiet=False,verbose=False,**kwargs,):
-
         super().__init__(rom_path, state_path, headless, save_video, quiet, **kwargs)
+        load_pyboy_state(self.game, self.load_last_state())
         self.counts_map = np.zeros((444, 436))
-        self.death_count = 0
+
         self.verbose = verbose
         self.include_conditions = []
         self.seen_maps_difference = set()
@@ -185,10 +186,12 @@ class Environment(Base):
         self.last_map = -1
         self.log = True
         self.used_cut = 0
+        self.cut_reset = 0
         # self.seen_coords = set()
         self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        load_pyboy_state(self.game, self.load_last_state())
-        
+
+        coord_rewards = []
+          
     def update_pokedex(self):
         for i in range(0xD30A - 0xD2F7):
             caught_mem = self.game.get_memory_value(i + 0xD2F7)
@@ -215,6 +218,7 @@ class Environment(Base):
                             self.moves_obtained[move_id] = 1
                         if move_id == 15:
                             self.cut = 1
+                            self.cut_reset = 1
         # Scan current box (since the box doesn't auto increment in pokemon red)
         num_moves = 4
         box_struct_length = 25 * num_moves * 2
@@ -273,11 +277,30 @@ class Environment(Base):
             and newram_map.mem_val(self.game, 0xCF94) == 3
             and newram_map.mem_val(self.game, 0xD31D) == newram_map.mem_val(self.game, 0xCC36) + newram_map.mem_val(self.game, 0xCC26)
         )
+    
+    def heal_reward(self):
+        cur_health = newram_map.hp(self.game)
+        # if health increased and party size did not change
+        if (cur_health > self.last_hp and newram_map.read_m(0xD163) == self.last_party_size):
+            if self.last_hp > 0:
+                heal_amount = cur_health - self.last_hp
+                if heal_amount > 0.5:
+                    print(f'healed: {heal_amount}')
+                self.total_healing += heal_amount * 4
+            else:
+                self.death_count += 1
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
         """Resets the game. Seeding is NOT supported"""
         self.reset_count += 1
-        
+        self.cut = 0
+        # if self.reset_count % 10 == 0:
+        #     load_pyboy_state(self.game, self.load_first_state())
+        #     self.seen_coords = set()
+             # full reset
+        # if self.reset_count % 51 == 0 and self.cut_reset == 0:
+        #     load_pyboy_state(self.game, self.load_first_state()) # full reset if no cut at 100m total step 1m agent step
+
         if self.save_video:
             base_dir = self.s_path
             base_dir.mkdir(parents=True, exist_ok=True)
@@ -305,7 +328,6 @@ class Environment(Base):
         self.last_hp = 1.0
         self.last_party_size = 1
         self.hm_count = 0
-        self.cut = 0
         self.cut_coords = {}
         self.cut_tiles = {} # set([])
         self.cut_state = deque(maxlen=3)
@@ -320,7 +342,9 @@ class Environment(Base):
         self.town = 1
         self.gymthree = 0
         self.gymfour = 0
+        self.death_count = 0
         self.expl = 0
+        self.respawn = set()
 
         return self.render(), {}
 
@@ -334,7 +358,7 @@ class Environment(Base):
         # Exploration reward
         r, c, map_n = newram_map.position(self.game)
         if self.cut == 1:
-            if r == 0x1f and c == 0x23 and map_n == 0x06:
+            if r == 0x1F and c == 0x23 and map_n == 0x06:
                 if (r, c, map_n) not in self.seen_coords:
                     self.expl += 5
             if r == 0x11 and c == 0x0F and map_n == 0x05:
@@ -346,6 +370,13 @@ class Environment(Base):
         self.seen_coords.add((r, c, map_n))
         exploration_reward = (0.02 * len(self.seen_coords)) + self.expl
 
+        # respawn reward
+        center = self.game.get_memory_value(0xD719)
+        self.respawn.add(center)
+        respawn_reward = len(self.respawn) * 5
+
+
+        # map check
         if map_n == 92:
             self.gymthree = 1
         if map_n == 134:
@@ -363,17 +394,18 @@ class Environment(Base):
         hp = newram_map.hp(self.game)
         hp_delta = hp - self.last_hp
         party_size_constant = party_size == self.last_party_size
-        if hp_delta > 0.5 and party_size_constant and not self.is_dead:
+        if hp_delta > 0.4 and party_size_constant and not self.is_dead:
             self.total_healing += hp_delta
         if hp <= 0 and self.last_hp > 0:
             self.death_count += 1
             self.is_dead = True
+            # self.seen_coords = set()
         elif hp > 0.01:  # TODO: Check if this matters
             self.is_dead = False
         self.last_hp = hp
         self.last_party_size = party_size
-        death_reward = 0 # -0.08 * self.death_count  # -0.05
-        healing_reward = self.total_healing
+ 
+        
         
         # HM reward
         hm_count = newram_map.get_hm_count(self.game)
@@ -399,12 +431,12 @@ class Environment(Base):
                     coords = (x + 1, y, map_id)
                 self.cut_state.append(
                     (
-                        self.game.get_memory_value(0xCFC6),
-                        self.game.get_memory_value(0xCFCB),
-                        self.game.get_memory_value(0xCD6A),
-                        self.game.get_memory_value(0xD367),
-                        self.game.get_memory_value(0xD125),
-                        self.game.get_memory_value(0xCD3D),
+                        self.game.get_memory_value(0xCFC6), # background tile number in front of the player (either 1 or 2 steps ahead)
+                        self.game.get_memory_value(0xCFCB), # $00 = causes sprites to be hidden and the value to change to $ff
+                        self.game.get_memory_value(0xCD6A), # When the player tries to use an item or use certain field moves, 0 is stored
+                        self.game.get_memory_value(0xD367), # wCurMapTileset
+                        self.game.get_memory_value(0xD125), # wTextBoxID
+                        self.game.get_memory_value(0xCD3D), # wFallingObjectsMovementData up to 20 bytes (one byte for each falling object)
                     )
                 )
                 if tuple(list(self.cut_state)[1:]) in CUT_SEQ:
@@ -436,6 +468,7 @@ class Environment(Base):
         badges = newram_map.badges(self.game)
         self.update_pokedex()
         self.update_moves_obtained()
+        # self.heal_reward()
         
         silph = newram_map.silph_co(self.game)
         rock_tunnel = newram_map.rock_tunnel(self.game)
@@ -463,13 +496,14 @@ class Environment(Base):
         gym7 = newram_map.gym7(self.game)
         gym8 = newram_map.gym8(self.game)
         rival = newram_map.rival(self.game)
+        bulba_check = newram_map.bulba(self.game)
 
         cut_rew = self.cut * 10    
         event_reward = sum([silph, rock_tunnel, ssanne, mtmoon, routes, misc, snorlax, hmtm, bill, oak, towns, lab, mansion, safari, dojo, hideout, tower, gym1, gym2, gym3, gym4, gym5, gym6, gym7, gym8, rival])
         seen_pokemon_reward = self.reward_scale * sum(self.seen_pokemon)
         caught_pokemon_reward = self.reward_scale * sum(self.caught_pokemon)
         moves_obtained_reward = self.reward_scale * sum(self.moves_obtained)
-        used_cut_rew = self.used_cut * 0.1
+        used_cut_rew = self.used_cut * 0.05
         cut_coords = sum(self.cut_coords.values()) * 1.0
         cut_tiles = len(self.cut_tiles) * 1.0
         start_menu = self.seen_start_menu * 0.01
@@ -477,10 +511,14 @@ class Environment(Base):
         stats_menu = self.seen_stats_menu * 0.1
         bag_menu = self.seen_bag_menu * 0.1
         that_guy = (start_menu + pokemon_menu + stats_menu + bag_menu ) / 2
+
+        death_reward = -0.02 * self.death_count  # -0.05
+        healing_reward = self.total_healing * 2
     
         reward = self.reward_scale * (
-            + level_reward
+            level_reward
             + healing_reward
+            + death_reward
             + exploration_reward 
             + cut_rew
             + event_reward     
@@ -491,6 +529,8 @@ class Environment(Base):
             + cut_coords 
             + cut_tiles
             + that_guy
+            + bulba_check
+            + respawn_reward
         )
 
         # Subtract previous reward
@@ -556,6 +596,8 @@ class Environment(Base):
                     "Used_Cut": used_cut_rew,
                     "Cut_Coords": cut_coords,
                     "Cut_Tiles": cut_tiles,
+                    "Bulba_Check": bulba_check,
+                    "Respawn": respawn_reward
                 },
                 "hm_count": hm_count,
                 "cut_taught": self.cut,
@@ -581,6 +623,7 @@ class Environment(Base):
                 'used_cut': self.used_cut,
                 'gym_three': self.gymthree,
                 'gym_four': self.gymfour,
+                "respawn_coord_len": len(self.respawn)
             }
         
         return self.render(), reward, done, done, info
