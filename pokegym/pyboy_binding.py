@@ -3,12 +3,8 @@ from io import BytesIO
 import numpy as np
 
 from pyboy import PyBoy
-from pyboy import logger
 from pyboy.utils import WindowEvent
 from pokegym import ram_map
-
-
-logger.logger.setLevel('ERROR')
 
 
 class Down:
