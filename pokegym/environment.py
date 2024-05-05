@@ -1,6 +1,8 @@
+import multiprocessing
 from pathlib import Path
 from pdb import set_trace as T
 import types
+from typing import Any, Optional
 import uuid
 from gymnasium import Env, spaces
 import numpy as np
@@ -39,6 +41,8 @@ state_file = get_random_state()
 randstate = os.path.join(STATE_PATH, state_file)
 
 class Base:
+    counter_lock = multiprocessing.Lock()
+    counter = multiprocessing.Value('i', 1)
     def __init__(
         self,
         rom_path="pokemon_red.gb",
@@ -48,6 +52,10 @@ class Base:
         quiet=False,
         **kwargs,
     ):
+        
+        with Base.counter_lock:
+            env_id = Base.counter.value
+            Base.counter.value += 1
         self.state_file = get_random_state()
         self.randstate = os.path.join(STATE_PATH, self.state_file)
         """Creates a PokemonRed environment"""
@@ -62,7 +70,11 @@ class Base:
         self.memory_shape = 80
         self.use_screen_memory = True
         self.screenshot_counter = 0
-        self.env_id = Path(f'{str(uuid.uuid4())[:4]}')
+        self.env_id = env_id
+        self.first = True
+
+
+
         self.s_path = __file__.rstrip("environment.py") + "Video/"
         self.reset_count = 0               
         self.explore_hidden_obj_weight = 1
@@ -114,7 +126,7 @@ class Base:
         rand_idx = random.randint(0, len(self.initial_states) - 1)
         return self.initial_states[rand_idx]
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None):
         """Resets the game. Seeding is NOT supported"""
         return self.screen.screen_ndarray(), {}
 
@@ -290,16 +302,10 @@ class Environment(Base):
             else:
                 self.death_count += 1
 
-    def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
+    def reset(self, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None, max_episode_steps=20480, reward_scale=4.0):
         """Resets the game. Seeding is NOT supported"""
-        self.reset_count += 1
-        self.cut = 0
-        # if self.reset_count % 10 == 0:
-        #     load_pyboy_state(self.game, self.load_first_state())
-        #     self.seen_coords = set()
-             # full reset
-        # if self.reset_count % 51 == 0 and self.cut_reset == 0:
-        #     load_pyboy_state(self.game, self.load_first_state()) # full reset if no cut at 100m total step 1m agent step
+        # restart game, skipping credits
+        options = options or {}
 
         if self.save_video:
             base_dir = self.s_path
@@ -313,11 +319,15 @@ class Environment(Base):
                 lambda: np.zeros((255, 255, 1), dtype=np.uint8)
             )
 
+        if options.get("state", None) is not None:
+            self.game.load_state(io.BytesIO(options["state"]))
+
         self.time = 0
         self.max_episode_steps = max_episode_steps
         self.reward_scale = reward_scale
         self.last_reward = None
 
+        self.reset_count += 1
         self.prev_map_n = None
         self.max_events = 0
         self.max_level_sum = 0
@@ -344,9 +354,14 @@ class Environment(Base):
         self.gymfour = 0
         self.death_count = 0
         self.expl = 0
+        self.cut = 0
         self.respawn = set()
+        self.first = False
+        state = io.BytesIO()
+        self.game.save_state(state)
+        state.seek(0)
 
-        return self.render(), {}
+        return self.render(), {"state": state.read()}
 
     def step(self, action, fast_video=True):
         run_action_on_emulator(self.game, self.screen, ACTIONS[action], self.headless, fast_video=fast_video,)
@@ -533,6 +548,7 @@ class Environment(Base):
             + respawn_reward
         )
 
+
         # Subtract previous reward
         # TODO: Don't record large cumulative rewards in the first place
         if self.last_reward is None:
@@ -548,6 +564,10 @@ class Environment(Base):
         if self.save_video and done:
             self.full_frame_writer.close()
         if done:
+            state = io.BytesIO()
+            self.game.save_state(state)
+            state.seek(0)
+            info["state"] = state.read()
             poke = self.game.get_memory_value(0xD16B)
             level = self.game.get_memory_value(0xD18C)
             if poke == 57 and level == 0:
