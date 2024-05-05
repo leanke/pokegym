@@ -1,5 +1,9 @@
-# Rom files
+# Rom files ect
 *.gb
+wandb/
+experiments/
+glitch
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
