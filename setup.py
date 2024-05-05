@@ -39,6 +39,7 @@ setup(
         'wandb==0.13.7',
         'psutil==5.9.5',
         'tyro',
+        'pufferlib==0.7.3',
     ],
     entry_points = {
         'console_scripts': [
