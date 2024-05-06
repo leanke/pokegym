@@ -8,7 +8,7 @@ Pokemon Red Gymnasium environment for reinforcement learning
 2. Fork the repo and clone your fork to your local machine.
 
 ```sh
-pip3 install -e . 
+pip install -e . 
 ```
 
 ### Running
@@ -16,3 +16,8 @@ pip3 install -e .
 ```sh
 ./run.sh
 ```
+
+### Edits
+
+1. /pokemon_red the policies and wrappers can be added here
+2. /pokegym is the environment files can be altered here
