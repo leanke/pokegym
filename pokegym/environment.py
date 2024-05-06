@@ -2,16 +2,13 @@ import multiprocessing
 from pathlib import Path
 from pdb import set_trace as T
 import sqlite3
-import types
 import uuid
-from gymnasium import Env, spaces
+from gymnasium import spaces
 import numpy as np
-from skimage.transform import resize
 
 from collections import defaultdict, deque
 import io, os
 import random
-from pyboy.utils import WindowEvent
 
 import matplotlib.pyplot as plt
 from pathlib import Path

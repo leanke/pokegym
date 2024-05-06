@@ -1,0 +1,72 @@
+[project]
+name = "pokegym"
+version = "0.1.8"
+description = "Pokemon Red Gymnasium environment for reinforcement learning"
+keywords = []
+classifiers = [
+	"Natural Language :: English",
+	"Operating System :: POSIX :: Linux",
+	"Operating System :: MacOS :: MacOS X",
+	"Programming Language :: Python",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = [
+    "einops",
+    "opencv-python",
+    "numpy",
+    "pyboy<2.0.0",
+    "pufferlib[cleanrl]>=0.7.3",
+    "torch>=2.1",
+    "torchvision",
+    "wandb",
+    "pettingzoo",
+    "gym==0.23",
+    "matplotlib",
+    "mediapy",
+    "websockets"
+]
+[tool.setuptools.packages.find]
+where = ["."]
+
+[project.optional-dependencies]
+monitoring = [
+    "nvitop"
+]
+dev = [
+    "ruff"
+]
+
+[tool.distutils.bdist_wheel]
+universal = true
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
