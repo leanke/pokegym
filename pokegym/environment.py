@@ -424,7 +424,7 @@ class Environment(Base):
                     )
                 )
                 if tuple(list(self.cut_state)[1:]) in CUT_SEQ:
-                    self.cut_coords[coords] = 5 # from 14
+                    self.cut_coords[coords] = 10 # from 14 or 5 with used cut never reset
                     self.cut_tiles[self.cut_state[-1][0]] = 1
                 elif self.cut_state == CUT_GRASS_SEQ:
                     self.cut_coords[coords] = 0.001
@@ -483,7 +483,7 @@ class Environment(Base):
         seen_pokemon_reward = self.reward_scale * sum(self.seen_pokemon)
         caught_pokemon_reward = self.reward_scale * sum(self.caught_pokemon)
         moves_obtained_reward = self.reward_scale * sum(self.moves_obtained)
-        used_cut_rew = self.used_cut * 0.1
+        used_cut_rew = self.used_cut * 0.02
         cut_coords = sum(self.cut_coords.values()) * 1.0
         cut_tiles = len(self.cut_tiles) * 1.0
         start_menu = self.seen_start_menu * 0.01
