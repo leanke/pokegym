@@ -62,14 +62,14 @@ pokemon_red:
   package: pokemon_red
   train:
     total_timesteps: 1_500_000_000
-    num_envs: 96
+    num_envs: 1
     envs_per_worker: 1
-    envs_per_batch: 32 
+    envs_per_batch: 1
     update_epochs: 3
     gamma: 0.998
     batch_size: 65536
     batch_rows: 128
-    compile: True
+    compile: False
     learning_rate: 2.0e-4
     anneal_lr: False
   env:

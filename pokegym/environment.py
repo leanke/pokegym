@@ -22,9 +22,11 @@ from pokegym.pyboy_binding import (
     run_action_on_emulator,
 )
 from pokegym import ram_map, data
+from .classes.gym_manager import Gym
+from .classes.story_manager import Story
 
 
-STATE_PATH = __file__.rstrip("environment.py") + "States/"
+STATE_PATH = __file__.rstrip("environment.py") + "States/bulba/"
 GLITCH = __file__.rstrip("environment.py") + "glitch/"
 CUT_GRASS_SEQ = deque([(0x52, 255, 1, 0, 1, 1), (0x52, 255, 1, 0, 1, 1), (0x52, 1, 1, 0, 1, 1)])
 CUT_FAIL_SEQ = deque([(-1, 255, 0, 0, 4, 1), (-1, 255, 0, 0, 1, 1), (-1, 255, 0, 0, 1, 1)])
@@ -58,7 +60,7 @@ class Base:
         self.randstate = os.path.join(STATE_PATH, self.state_file)
         """Creates a PokemonRed environment"""
         if state_path is None:
-            state_path = STATE_PATH + "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
+            state_path = STATE_PATH + "saffron.state" # STATE_PATH + "has_pokedex_nballs.state"
                 # Make the environment
         self.game, self.screen = make_env(rom_path, headless, quiet, save_video=True, **kwargs)
         self.initial_states = [open_state_file(state_path)]
@@ -182,23 +184,17 @@ class Environment(Base):
     def __init__(self,rom_path="pokemon_red.gb",state_path=None,headless=True,save_video=False,quiet=False,verbose=False,**kwargs,):
         super().__init__(rom_path, state_path, headless, save_video, quiet, **kwargs)
         load_pyboy_state(self.game, self.load_last_state())
+
         self.counts_map = np.zeros((444, 436))
-
         self.verbose = verbose
-        self.include_conditions = []
-        self.seen_maps_difference = set()
-        self.current_maps = []
         self.is_dead = False
-        self.last_map = -1
-        self.log = True
-        self.cut_reset = 0
         self.poketower = [142, 143, 144, 145, 146, 147, 148]
-        self.pokehideout = [199, 200, 201, 202, 203]
+        self.pokehideout = [199, 200, 201, 202, 203, 135] # includes game corner
         self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
-        # self.seen_coords = set()
-        self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-
-        coord_rewards = []
+        self.celadon = [134, 6] # gym and celadon
+        self.towns = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        self.gym = Gym(self.game)
+        self.story = Story(self.game)
 
     def save_to_database(self):
         db_dir = self.db_path
@@ -316,6 +312,28 @@ class Environment(Base):
         if self.save_video:
             self.add_video_frame()
         
+        #Gym
+        self.gym.update()
+        high_gym_maps, low_gym_maps = self.gym.maps()
+        print(f'Low Gym: {low_gym_maps}\n High Gym: {high_gym_maps}')
+        # print(self.gym.events(self.gym.gym_trainers))
+        # print(self.gym.trainer_rew)
+        # print(self.gym.events(self.gym.gym_tasks))
+        # print(self.gym.task_rew)
+        # print(self.gym.events(self.gym.gym_leaders))
+        # print(self.gym.leader_rew)
+        # print(self.gym.rew_sum)
+        
+
+        #Story
+        self.story.update()
+        high_story_maps, low_story_maps = self.story.maps()
+        print(f'Low Story: {low_story_maps}\n High Story: {high_story_maps}')
+
+
+
+
+
         # Exploration
         r, c, map_n = ram_map.position(self.game) # this is [y, x, z]
         # Exploration reward
@@ -324,6 +342,8 @@ class Environment(Base):
             if map_n in self.poketower:
                 self.exploration_reward = 0
             elif map_n in self.pokehideout:
+                self.exploration_reward = (0.03 * len(self.seen_coords))
+            elif map_n in self.celadon:
                 self.exploration_reward = (0.03 * len(self.seen_coords))
             else:
                 self.exploration_reward = (0.02 * len(self.seen_coords))
@@ -424,7 +444,7 @@ class Environment(Base):
                     )
                 )
                 if tuple(list(self.cut_state)[1:]) in CUT_SEQ:
-                    self.cut_coords[coords] = 10 # from 14 or 5 with used cut never reset
+                    self.cut_coords[coords] = 10 # from 14
                     self.cut_tiles[self.cut_state[-1][0]] = 1
                 elif self.cut_state == CUT_GRASS_SEQ:
                     self.cut_coords[coords] = 0.001
