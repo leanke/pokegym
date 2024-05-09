@@ -39,14 +39,14 @@ class Story:
     
     def maps(self):
         high = set()
-        low = []
+        low = set()
         for i in range(len(self.story_prog)):
             if not self.story_prog[i] and self.story_prog[(i-1)]:
                 high = self.story_maps[i]
             elif self.story_prog[i]:
-                low += self.story_maps[i]
+                low.add(self.story_maps[i])
             else:
-                low += self.story_maps[i]
+                low.add(self.story_maps[i])
         return high, low
     
     def events(self):
