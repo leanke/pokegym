@@ -70,13 +70,13 @@ class Gym:
         int(ram_map.read_bit(self.game, 0xD751, 1))] # Viridian
     
     def maps(self):
-        high = set()
-        low = set()
+        high = []
+        low = []
         for i in range(len(self.gym_prog)):
             if self.gym_prog[i]:
-                low.add(self.gym_maps[i])
+                low.append(self.gym_maps[i])
             else:
-                high.add(self.gym_maps[i])
+                high.append(self.gym_maps[i])
         return high, low
     
     def events(self, dictionary):

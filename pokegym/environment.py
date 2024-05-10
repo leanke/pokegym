@@ -298,18 +298,18 @@ class Environment(Base):
         self.gym.update()
         high_gym_maps, low_gym_maps = self.gym.maps()
         gym_rew = self.gym.rew_sum
-        print(f'Low Gym: {low_gym_maps}\n High Gym: {high_gym_maps}')
-        print(f'Gym Rew: {gym_rew}')
+        # print(f'Low Gym: {low_gym_maps}\n High Gym: {high_gym_maps}')
+        # print(f'Gym Rew: {gym_rew}')
 
         # Event
         self.event.update()
         event_rew = self.event.rew_sum
-        print(f'Events Rew: {event_rew}')
+        # print(f'Events Rew: {event_rew}')
         
         # Story
         self.story.update()
         high_story_maps, low_story_maps = self.story.maps()
-        print(f'Low Story: {low_story_maps}\n High Story: {high_story_maps}')
+        # print(f'Low Story: {low_story_maps}\n High Story: {high_story_maps}')
 
         # New Exploration
         self.expl_high_map = high_gym_maps + high_story_maps
