@@ -16,12 +16,6 @@ dependencies = [
     "opencv-python",
     "numpy",
     "pyboy<2.0.0",
-    "pufferlib[cleanrl]>=0.7.3",
-    "torch>=2.1",
-    "torchvision",
-    "wandb",
-    "pettingzoo",
-    "gym==0.23",
     "matplotlib",
     "mediapy",
     "websockets"
