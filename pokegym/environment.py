@@ -161,106 +161,11 @@ class Environment(Base):
         self.last_map = -1
         self.log = True
         self.used_cut = 0
-        # self.seen_coords = set()
         self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        self.poketower = [142, 143, 144, 145, 146, 147, 148]
-        self.pokehideout = [199, 200, 201, 202, 203]
-        self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
         load_pyboy_state(self.game, self.load_last_state())
-        # test check
-        # self.seen_pokemon = np.zeros(152, dtype=np.uint8)
-        # self.caught_pokemon = np.zeros(152, dtype=np.uint8)
-        # self.moves_obtained = {} # np.zeros(255, dtype=np.uint8)
-        # self.cut = 0
-        # self.cut_coords = {}
-        # self.cut_tiles = {} # set([])
-        # self.cut_state = deque(maxlen=3)
-        # self.max_level_sum = 0
-        
-    def update_pokedex(self):
-        for i in range(0xD30A - 0xD2F7):
-            caught_mem = self.game.get_memory_value(i + 0xD2F7)
-            seen_mem = self.game.get_memory_value(i + 0xD30A)
-            for j in range(8):
-                self.caught_pokemon[8*i + j] = 1 if caught_mem & (1 << j) else 0
-                self.seen_pokemon[8*i + j] = 1 if seen_mem & (1 << j) else 0  
-
-    def town_state(self):
-        state = io.BytesIO()
-        state.seek(0)
-        self.game.save_state(state)
-        self.initial_states.append(state)
-        return 
-    
-    def update_moves_obtained(self):
-        # Scan party
-        for i in [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247]:
-            if self.game.get_memory_value(i) != 0:
-                for j in range(4):
-                    move_id = self.game.get_memory_value(i + j + 8)
-                    if move_id != 0:
-                        if move_id != 0:
-                            self.moves_obtained[move_id] = 1
-                        if move_id == 15:
-                            self.cut = 1
-        # Scan current box (since the box doesn't auto increment in pokemon red)
-        num_moves = 4
-        box_struct_length = 25 * num_moves * 2
-        for i in range(self.game.get_memory_value(0xda80)):
-            offset = i*box_struct_length + 0xda96
-            if self.game.get_memory_value(offset) != 0:
-                for j in range(4):
-                    move_id = self.game.get_memory_value(offset + j + 8)
-                    if move_id != 0:
-                        self.moves_obtained[move_id] = 1
             
     def add_video_frame(self):
         self.full_frame_writer.add_image(self.render())
-
-    def get_game_coords(self):
-        return (ram_map.mem_val(self.game, 0xD362), ram_map.mem_val(self.game, 0xD361), ram_map.mem_val(self.game, 0xD35E))
-    
-    def check_if_in_start_menu(self) -> bool:
-        return (
-            ram_map.mem_val(self.game, 0xD057) == 0
-            and ram_map.mem_val(self.game, 0xCF13) == 0
-            and ram_map.mem_val(self.game, 0xFF8C) == 6
-            and ram_map.mem_val(self.game, 0xCF94) == 0
-        )
-
-    def check_if_in_pokemon_menu(self) -> bool:
-        return (
-            ram_map.mem_val(self.game, 0xD057) == 0
-            and ram_map.mem_val(self.game, 0xCF13) == 0
-            and ram_map.mem_val(self.game, 0xFF8C) == 6
-            and ram_map.mem_val(self.game, 0xCF94) == 2
-        )
-
-    def check_if_in_stats_menu(self) -> bool:
-        return (
-            ram_map.mem_val(self.game, 0xD057) == 0
-            and ram_map.mem_val(self.game, 0xCF13) == 0
-            and ram_map.mem_val(self.game, 0xFF8C) == 6
-            and ram_map.mem_val(self.game, 0xCF94) == 1
-        )
-
-    def check_if_in_bag_menu(self) -> bool:
-        return (
-            ram_map.mem_val(self.game, 0xD057) == 0
-            and ram_map.mem_val(self.game, 0xCF13) == 0
-            # and ram_map.mem_val(self.game, 0xFF8C) == 6 # only sometimes
-            and ram_map.mem_val(self.game, 0xCF94) == 3
-        )
-
-    def check_if_cancel_bag_menu(self, action) -> bool:
-        return (
-            action == WindowEvent.PRESS_BUTTON_A
-            and ram_map.mem_val(self.game, 0xD057) == 0
-            and ram_map.mem_val(self.game, 0xCF13) == 0
-            # and ram_map.mem_val(self.game, 0xFF8C) == 6
-            and ram_map.mem_val(self.game, 0xCF94) == 3
-            and ram_map.mem_val(self.game, 0xD31D) == ram_map.mem_val(self.game, 0xCC36) + ram_map.mem_val(self.game, 0xCC26)
-        )
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
         """Resets the game. Seeding is NOT supported"""
@@ -322,49 +227,7 @@ class Environment(Base):
         
         # Exploration
         r, c, map_n = ram_map.position(self.game) # this is [y, x, z]
-        # Exploration reward
-        self.seen_coords.add((r, c, map_n))
-        if int(ram_map.read_bit(self.game, 0xD81B, 7)) == 0: # pre hideout
-            if map_n in self.poketower:
-                exploration_reward = 0
-            elif map_n in self.pokehideout:
-                exploration_reward = (0.03 * len(self.seen_coords))
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        elif int(ram_map.read_bit(self.game, 0xD7E0, 7)) == 0 and int(ram_map.read_bit(self.game, 0xD81B, 7)) == 1: # hideout done poketower not done
-            if map_n in self.poketower:
-                exploration_reward = (0.03 * len(self.seen_coords))
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        elif int(ram_map.read_bit(self.game, 0xD76C, 0)) == 0 and int(ram_map.read_bit(self.game, 0xD7E0, 7)) == 1: # tower done no flute
-            if map_n == 149:
-                exploration_reward = (0.03 * len(self.seen_coords))
-            elif map_n in self.poketower:
-                exploration_reward = (0.01 * len(self.seen_coords))
-            elif map_n in self.pokehideout:
-                exploration_reward = (0.01 * len(self.seen_coords))
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        elif int(ram_map.read_bit(self.game, 0xD838, 7)) == 0 and int(ram_map.read_bit(self.game, 0xD76C, 0)) == 1: # flute gotten pre silphco
-            if map_n in self.silphco:
-                exploration_reward = (0.03 * len(self.seen_coords))
-            elif map_n in self.poketower:
-                exploration_reward = (0.01 * len(self.seen_coords))
-            elif map_n in self.pokehideout:
-                exploration_reward = (0.01 * len(self.seen_coords))
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        elif int(ram_map.read_bit(self.game, 0xD838, 7)) == 1 and int(ram_map.read_bit(self.game, 0xD76C, 0)) == 1: # flute gotten post silphco
-            if map_n in self.silphco:
-                exploration_reward = (0.01 * len(self.seen_coords))
-            elif map_n in self.poketower:
-                exploration_reward = (0.01 * len(self.seen_coords))
-            elif map_n in self.pokehideout:
-                exploration_reward = (0.01 * len(self.seen_coords))
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        else:
-            exploration_reward = (0.02 * len(self.seen_coords))
+        exploration_reward = ram_map.explore(self)
 
         if map_n == 92:
             self.gymthree = 1
@@ -408,15 +271,14 @@ class Environment(Base):
         if ram_map.mem_val(self.game, 0xD057) == 0: # is_in_battle if 1
             if self.cut == 1:
                 player_direction = self.game.get_memory_value(0xC109)
-                x, y, map_id = self.get_game_coords()  # x, y, map_id
                 if player_direction == 0:  # down
-                    coords = (x, y + 1, map_id)
+                    coords = (c, r + 1, map_n)
                 if player_direction == 4:
-                    coords = (x, y - 1, map_id)
+                    coords = (c, r - 1, map_n)
                 if player_direction == 8:
-                    coords = (x - 1, y, map_id)
+                    coords = (c - 1, r, map_n)
                 if player_direction == 0xC:
-                    coords = (x + 1, y, map_id)
+                    coords = (c + 1, r, map_n)
                 self.cut_state.append(
                     (
                         self.game.get_memory_value(0xCFC6),
@@ -437,16 +299,14 @@ class Environment(Base):
                     self.cut_coords[coords] = 0.001
                     self.cut_tiles[self.cut_state[-1][0]] = 1
                 if int(ram_map.read_bit(self.game, 0xD803, 0)):
-                    if self.check_if_in_start_menu():
+                    if ram_map.check_if_in_start_menu(self.game):
                         self.seen_start_menu = 1
-                    if self.check_if_in_pokemon_menu():
+                    if ram_map.check_if_in_pokemon_menu(self.game):
                         self.seen_pokemon_menu = 1
-                    if self.check_if_in_stats_menu():
+                    if ram_map.check_if_in_stats_menu(self.game):
                         self.seen_stats_menu = 1
-                    if self.check_if_in_bag_menu():
+                    if ram_map.check_if_in_bag_menu(self.game):
                         self.seen_bag_menu = 1
-                    if self.check_if_cancel_bag_menu(action):
-                        self.seen_cancel_bag_menu = 1
 
         if ram_map.used_cut(self.game) == 61:
             ram_map.write_mem(self.game, 0xCD4D, 00) # address, byte to write resets tile check
@@ -454,8 +314,8 @@ class Environment(Base):
 
         # Misc
         badges = ram_map.badges(self.game)
-        self.update_pokedex()
-        self.update_moves_obtained()
+        ram_map.update_pokedex(self)
+        ram_map.update_moves_obtained(self)
         
         silph = ram_map.silph_co(self.game)
         rock_tunnel = ram_map.rock_tunnel(self.game)
