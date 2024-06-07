@@ -735,7 +735,37 @@ def badges(game):
     badges = game.get_memory_value(BADGE_1_ADDR)
     return bit_count(badges)
 
+def check_if_in_start_menu(game) -> bool:
+    return (
+        mem_val(game, 0xD057) == 0
+        and mem_val(game, 0xCF13) == 0
+        and mem_val(game, 0xFF8C) == 6
+        and mem_val(game, 0xCF94) == 0
+    )
 
+def check_if_in_pokemon_menu(game) -> bool:
+    return (
+        mem_val(game, 0xD057) == 0
+        and mem_val(game, 0xCF13) == 0
+        and mem_val(game, 0xFF8C) == 6
+        and mem_val(game, 0xCF94) == 2
+    )
+
+def check_if_in_stats_menu(game) -> bool:
+    return (
+        mem_val(game, 0xD057) == 0
+        and mem_val(game, 0xCF13) == 0
+        and mem_val(game, 0xFF8C) == 6
+        and mem_val(game, 0xCF94) == 1
+    )
+
+def check_if_in_bag_menu(game) -> bool:
+    return (
+        mem_val(game, 0xD057) == 0
+        and mem_val(game, 0xCF13) == 0
+        # and mem_val(game, 0xFF8C) == 6 # only sometimes
+        and mem_val(game, 0xCF94) == 3
+    )
 
 
 

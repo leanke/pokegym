@@ -1,6 +1,5 @@
 from pathlib import Path
 from pdb import set_trace as T
-import types
 import uuid
 from gymnasium import Env, spaces
 import numpy as np
@@ -14,7 +13,6 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import mediapy as media
 
-from hideout_baseline.pokegym import ram_map
 from pokegym.pyboy_binding import (
     ACTIONS,
     make_env,
@@ -22,7 +20,7 @@ from pokegym.pyboy_binding import (
     load_pyboy_state,
     run_action_on_emulator,
 )
-from pokegym import data
+from pokegym import data, ram_map
 
 
 STATE_PATH = __file__.rstrip("environment.py") + "States/"
@@ -63,6 +61,7 @@ class Base:
         self.use_screen_memory = True
         self.screenshot_counter = 0
         self.env_id = Path(f'{str(uuid.uuid4())[:4]}')
+        self.s_path = Path(f"videos/{self.env_id}")
         self.reset_count = 0               
         self.explore_hidden_obj_weight = 1
 
@@ -80,15 +79,6 @@ class Base:
             low=0, high=255, dtype=np.uint8, shape=self.obs_size
         )
         self.action_space = spaces.Discrete(len(ACTIONS))
-    
-    def save_screenshot(self, event, map_n):
-        self.screenshot_counter += 1
-        ss_dir = Path('screenshots')
-        ss_dir.mkdir(exist_ok=True)
-        plt.imsave(
-            # ss_dir / Path(f'ss_{x}_y_{y}_steps_{steps}_{comment}.jpeg'),
-            ss_dir / Path(f'{self.screenshot_counter}_{event}_{map_n}.jpeg'),
-            self.screen.screen_ndarray())  # (144, 160, 3)
 
     def save_state(self):
         state = io.BytesIO()
@@ -173,7 +163,6 @@ class Base:
 
 class Environment(Base):
     def __init__(self,rom_path="pokemon_red.gb",state_path=None,headless=True,save_video=False,quiet=False,verbose=False,**kwargs,):
-
         super().__init__(rom_path, state_path, headless, save_video, quiet, **kwargs)
         self.counts_map = np.zeros((444, 436))
         self.death_count = 0
@@ -232,52 +221,8 @@ class Environment(Base):
     def add_video_frame(self):
         self.full_frame_writer.add_image(self.video())
 
-    def get_game_coords(self):
-        return (ram_map.mem_val(self.game, 0xD362), ram_map.mem_val(self.game, 0xD361), ram_map.mem_val(self.game, 0xD35E))
-    
-    def check_if_in_start_menu(self) -> bool:
-        return (
-            ram_map.mem_val(self.game, 0xD057) == 0
-            and ram_map.mem_val(self.game, 0xCF13) == 0
-            and ram_map.mem_val(self.game, 0xFF8C) == 6
-            and ram_map.mem_val(self.game, 0xCF94) == 0
-        )
 
-    def check_if_in_pokemon_menu(self) -> bool:
-        return (
-            ram_map.mem_val(self.game, 0xD057) == 0
-            and ram_map.mem_val(self.game, 0xCF13) == 0
-            and ram_map.mem_val(self.game, 0xFF8C) == 6
-            and ram_map.mem_val(self.game, 0xCF94) == 2
-        )
-
-    def check_if_in_stats_menu(self) -> bool:
-        return (
-            ram_map.mem_val(self.game, 0xD057) == 0
-            and ram_map.mem_val(self.game, 0xCF13) == 0
-            and ram_map.mem_val(self.game, 0xFF8C) == 6
-            and ram_map.mem_val(self.game, 0xCF94) == 1
-        )
-
-    def check_if_in_bag_menu(self) -> bool:
-        return (
-            ram_map.mem_val(self.game, 0xD057) == 0
-            and ram_map.mem_val(self.game, 0xCF13) == 0
-            # and newram_map.mem_val(self.game, 0xFF8C) == 6 # only sometimes
-            and ram_map.mem_val(self.game, 0xCF94) == 3
-        )
-
-    def check_if_cancel_bag_menu(self, action) -> bool:
-        return (
-            action == WindowEvent.PRESS_BUTTON_A
-            and ram_map.mem_val(self.game, 0xD057) == 0
-            and ram_map.mem_val(self.game, 0xCF13) == 0
-            # and newram_map.mem_val(self.game, 0xFF8C) == 6
-            and ram_map.mem_val(self.game, 0xCF94) == 3
-            and ram_map.mem_val(self.game, 0xD31D) == ram_map.mem_val(self.game, 0xCC36) + ram_map.mem_val(self.game, 0xCC26)
-        )
-
-    def reset(self, seed=None, options=None, max_episode_steps=2048, reward_scale=4.0):
+    def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
         """Resets the game. Seeding is NOT supported"""
         self.reset_count += 1
         
@@ -320,9 +265,6 @@ class Environment(Base):
         self.seen_pokemon = np.zeros(152, dtype=np.uint8)
         self.caught_pokemon = np.zeros(152, dtype=np.uint8)
         self.moves_obtained = {} # np.zeros(255, dtype=np.uint8)
-        self.town = 1
-        self.gymthree = 0
-        self.gymfour = 0
 
         return self.render(), {}
 
@@ -379,11 +321,6 @@ class Environment(Base):
         else:
             exploration_reward = (0.02 * len(self.seen_coords))
 
-        if map_n == 92:
-            self.gymthree = 1
-        if map_n == 134:
-            self.gymfour = 1
-
         # Level reward
         party_size, party_levels = ram_map.party(self.game)
         self.max_level_sum = max(self.max_level_sum, sum(party_levels))
@@ -421,15 +358,14 @@ class Environment(Base):
         if ram_map.mem_val(self.game, 0xD057) == 0: # is_in_battle if 1
             if self.cut == 1:
                 player_direction = self.game.get_memory_value(0xC109)
-                x, y, map_id = self.get_game_coords()  # x, y, map_id
                 if player_direction == 0:  # down
-                    coords = (x, y + 1, map_id)
+                    coords = (c, r + 1, map_n)
                 if player_direction == 4:
-                    coords = (x, y - 1, map_id)
+                    coords = (c, r - 1, map_n)
                 if player_direction == 8:
-                    coords = (x - 1, y, map_id)
+                    coords = (c - 1, r, map_n)
                 if player_direction == 0xC:
-                    coords = (x + 1, y, map_id)
+                    coords = (c + 1, r, map_n)
                 self.cut_state.append(
                     (
                         self.game.get_memory_value(0xCFC6),
@@ -450,16 +386,15 @@ class Environment(Base):
                     self.cut_coords[coords] = 0.001
                     self.cut_tiles[self.cut_state[-1][0]] = 1
                 if int(ram_map.read_bit(self.game, 0xD803, 0)):
-                    if self.check_if_in_start_menu():
+                    if ram_map.check_if_in_start_menu(self.game):
                         self.seen_start_menu = 1
-                    if self.check_if_in_pokemon_menu():
+                    if ram_map.check_if_in_pokemon_menu(self.game):
                         self.seen_pokemon_menu = 1
-                    if self.check_if_in_stats_menu():
+                    if ram_map.check_if_in_stats_menu(self.game):
                         self.seen_stats_menu = 1
-                    if self.check_if_in_bag_menu():
+                    if ram_map.check_if_in_bag_menu(self.game):
                         self.seen_bag_menu = 1
-                    if self.check_if_cancel_bag_menu(action):
-                        self.seen_cancel_bag_menu = 1
+
 
         if ram_map.used_cut(self.game) == 61:
             ram_map.write_mem(self.game, 0xCD4D, 00) # address, byte to write resets tile check
@@ -574,7 +509,7 @@ class Environment(Base):
                     "gym8": gym8,
                     "rival": rival,
                 },
-                "BET": {
+                "Rewards": {
                     "Reward_Delta": reward,
                     "Seen_Poke": seen_pokemon_reward,
                     "Caught_Poke": caught_pokemon_reward,
@@ -612,8 +547,6 @@ class Environment(Base):
                 'pokemon_menu': pokemon_menu,
                 'start_menu': start_menu,
                 'used_cut': self.used_cut,
-                'gym_three': self.gymthree,
-                'gym_four': self.gymfour,
             }
         
         return self.render(), reward, done, done, info
