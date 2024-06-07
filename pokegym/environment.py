@@ -44,7 +44,7 @@ class Base:
         quiet=False,
         **kwargs,
     ):
-        if rom_path is None:
+        if rom_path is None or not os.path.exists(rom_path):
             raise FileNotFoundError("No ROM file found in the specified directory.")
 
         self.state_file = get_random_state()
