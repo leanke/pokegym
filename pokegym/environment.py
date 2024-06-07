@@ -7,9 +7,7 @@ import numpy as np
 from collections import defaultdict, deque
 import io, os
 import random
-from pyboy.utils import WindowEvent
 
-import matplotlib.pyplot as plt
 from pathlib import Path
 import mediapy as media
 
@@ -46,6 +44,9 @@ class Base:
         quiet=False,
         **kwargs,
     ):
+        if rom_path is None:
+            raise FileNotFoundError("No ROM file found in the specified directory.")
+
         self.state_file = get_random_state()
         self.randstate = os.path.join(STATE_PATH, self.state_file)
         """Creates a PokemonRed environment"""
@@ -177,7 +178,7 @@ class Environment(Base):
         # self.seen_coords = set()
         self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self.poketower = [142, 143, 144, 145, 146, 147, 148]
-        self.pokehideout = [199, 200, 201, 202, 203]
+        self.pokehideout = [199, 200, 201, 202, 203, 135]
         self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
         load_pyboy_state(self.game, self.load_last_state())
         
@@ -220,7 +221,6 @@ class Environment(Base):
             
     def add_video_frame(self):
         self.full_frame_writer.add_image(self.video())
-
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
         """Resets the game. Seeding is NOT supported"""
