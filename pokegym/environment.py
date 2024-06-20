@@ -35,50 +35,29 @@ state_file = get_random_state()
 randstate = os.path.join(STATE_PATH, state_file)
 
 class Base:
-    def __init__(
-        self,
-        rom_path="pokemon_red.gb",
-        state_path=None,
-        headless=True,
-        save_video=False,
-        quiet=False,
-        **kwargs,
-    ):
+    def __init__(self, rom_path="pokemon_red.gb", state_path=None, headless=True, save_video=False, quiet=False, **kwargs,):
+
         if rom_path is None or not os.path.exists(rom_path):
             raise FileNotFoundError("No ROM file found in the specified directory.")
-
+        
         self.state_file = get_random_state()
         self.randstate = os.path.join(STATE_PATH, self.state_file)
-        """Creates a PokemonRed environment"""
         if state_path is None:
             state_path = STATE_PATH + "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
-                # Make the environment
+
         self.game, self.screen = make_env(rom_path, headless, quiet, save_video=True, **kwargs)
         self.initial_states = [open_state_file(state_path)]
         self.save_video = save_video
         self.headless = headless
-        self.mem_padding = 2
-        self.memory_shape = 80
-        self.use_screen_memory = True
-        self.screenshot_counter = 0
         self.env_id = Path(f'{str(uuid.uuid4())[:4]}')
         self.s_path = Path(f"videos/{self.env_id}")
         self.reset_count = 0               
-        self.explore_hidden_obj_weight = 1
 
         R, C = self.screen.raw_screen_buffer_dims()
         self.obs_size = (R // 2, C // 2) # 72, 80, 3
-
-        if self.use_screen_memory:
-            self.screen_memory = defaultdict(
-                lambda: np.zeros((255, 255, 1), dtype=np.uint8)
-            )
-            self.obs_size += (4,)
-        else:
-            self.obs_size += (3,)
-        self.observation_space = spaces.Box(
-            low=0, high=255, dtype=np.uint8, shape=self.obs_size
-        )
+        self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
+        self.obs_size += (4,)
+        self.observation_space = spaces.Box(low=0, high=255, dtype=np.uint8, shape=self.obs_size)
         self.action_space = spaces.Discrete(len(ACTIONS))
 
     def save_state(self):
@@ -132,24 +111,15 @@ class Base:
         )
 
     def render(self):
-        if self.use_screen_memory:
-            r, c, map_n = ram_map.position(self.game)
-            # Update tile map
-            mmap = self.screen_memory[map_n]
-            if 0 <= r <= 254 and 0 <= c <= 254:
-                mmap[r, c] = 255
+        r, c, map_n = ram_map.position(self.game)
+        mmap = self.screen_memory[map_n]
+        if 0 <= r <= 254 and 0 <= c <= 254:
+            mmap[r, c] = 255
 
-            # Downsamples the screen and retrieves a fixed window from mmap,
-            # then concatenates along the 3rd-dimensional axis (image channel)
-            return np.concatenate(
-                (
-                    self.screen.screen_ndarray()[::2, ::2],
-                    self.get_fixed_window(mmap, r, c, self.observation_space.shape),
-                ),
-                axis=2,
-            )
-        else:
-            return self.screen.screen_ndarray()[::2, ::2]
+        return np.concatenate((
+                self.screen.screen_ndarray()[::2, ::2],
+                self.get_fixed_window(mmap, r, c, self.observation_space.shape),
+            ),axis=2,)
 
     def step(self, action):
         run_action_on_emulator(self.game, self.screen, ACTIONS[action], self.headless)
@@ -163,24 +133,24 @@ class Base:
         self.game.stop(False)
 
 class Environment(Base):
-    def __init__(self,rom_path="pokemon_red.gb",state_path=None,headless=True,save_video=False,quiet=False,verbose=False,**kwargs,):
+    def __init__(self, rom_path="pokemon_red.gb", state_path=None, headless=True, save_video=False, quiet=False, verbose=False, **kwargs,):
         super().__init__(rom_path, state_path, headless, save_video, quiet, **kwargs)
-        self.counts_map = np.zeros((444, 436))
-        self.death_count = 0
+        load_pyboy_state(self.game, self.load_last_state())
+
         self.verbose = verbose
-        self.include_conditions = []
-        self.seen_maps_difference = set()
-        self.current_maps = []
+        self.full_resets = True
+
         self.is_dead = False
-        self.last_map = -1
-        self.log = True
         self.used_cut = 0
-        # self.seen_coords = set()
+        self.reset_mem = 5
+        self.countdown = 5
+        self.death_count = 0
+
         self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self.poketower = [142, 143, 144, 145, 146, 147, 148]
         self.pokehideout = [199, 200, 201, 202, 203, 135]
         self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
-        load_pyboy_state(self.game, self.load_last_state())
+
         
     def update_pokedex(self):
         for i in range(0xD30A - 0xD2F7):
@@ -189,13 +159,6 @@ class Environment(Base):
             for j in range(8):
                 self.caught_pokemon[8*i + j] = 1 if caught_mem & (1 << j) else 0
                 self.seen_pokemon[8*i + j] = 1 if seen_mem & (1 << j) else 0  
-
-    def town_state(self):
-        state = io.BytesIO()
-        state.seek(0)
-        self.game.save_state(state)
-        self.initial_states.append(state)
-        return 
     
     def update_moves_obtained(self):
         # Scan party
@@ -223,9 +186,25 @@ class Environment(Base):
         self.full_frame_writer.add_image(self.video())
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
-        """Resets the game. Seeding is NOT supported"""
         self.reset_count += 1
-        
+        self.countdown -= 1
+        # reset schedule 
+        # [5, 11, 18, 26, 35, 45, 56, 68, 81, 95, 110, 126, 143, 161, 180, 200, 221, 243, 266, 290, 
+        # 315, 341, 368, 396, 425, 455, 486, 518, 551, 585, 620, 656, 693, 731, 770, 810, 851, 893, 
+        # 936, 980, 1025, 1071, 1118, 1166, 1215, 1265, 1316, 1368, 1421, 1475, 1530, 1586, 1643, 
+        # 1701, 1760, 1820, 1881, 1943, 2006, 2070, 2135, 2201, 2268, 2336, 2405, 2475, 2546, 2618, 
+        # 2691, 2765, 2840, 2916, 2993, 3071, 3150, 3230, 3311, 3393, 3476, 3560, 3645, 3731, 3818, 
+        # 3906, 3995, 4085, 4176, 4268, 4361, 4455, 4550, 4646, 4743, 4841, 4940, 5040, 5141, 5243, 
+        # 5346, 5450, 5555, 5661, 5768, 5876, 5985, 6095, 6206, 6318, 6431, 6545, 6660, 6776, 6893, 
+        # 7011, 7130, 7250, 7371, 7493, 7616, 7740, 7865, 7991, 8118, 8246, 8375, 8505, 8636, 8768, 
+        # 8901, 9035, 9170, 9306, 9443, 9581, 9720, 9860]
+
+        if self.full_resets:
+            if self.countdown == 0:
+                self.reset_mem += 1
+                self.countdown = self.reset_mem
+                load_pyboy_state(self.game, self.load_last_state())
+
         if self.save_video:
             base_dir = self.s_path
             base_dir.mkdir(parents=True, exist_ok=True)
@@ -233,38 +212,29 @@ class Environment(Base):
             self.full_frame_writer = media.VideoWriter(base_dir / full_name, (144, 160), fps=60)
             self.full_frame_writer.__enter__()
 
-        if self.use_screen_memory:
-            self.screen_memory = defaultdict(
-                lambda: np.zeros((255, 255, 1), dtype=np.uint8)
-            )
-
+        self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
         self.time = 0
         self.max_episode_steps = max_episode_steps
         self.reward_scale = reward_scale
         self.last_reward = None
 
-        self.prev_map_n = None
-        self.max_events = 0
         self.max_level_sum = 0
-        self.max_opponent_level = 0
         self.seen_coords = set()
-        self.seen_maps = set()
         self.total_healing = 0
         self.last_hp = 1.0
         self.last_party_size = 1
         self.hm_count = 0
         self.cut = 0
         self.cut_coords = {}
-        self.cut_tiles = {} # set([])
+        self.cut_tiles = {}
         self.cut_state = deque(maxlen=3)
         self.seen_start_menu = 0
         self.seen_pokemon_menu = 0
         self.seen_stats_menu = 0
         self.seen_bag_menu = 0
-        self.seen_cancel_bag_menu = 0
         self.seen_pokemon = np.zeros(152, dtype=np.uint8)
         self.caught_pokemon = np.zeros(152, dtype=np.uint8)
-        self.moves_obtained = {} # np.zeros(255, dtype=np.uint8)
+        self.moves_obtained = {}
 
         return self.render(), {}
 
@@ -405,7 +375,7 @@ class Environment(Base):
         self.update_pokedex()
         self.update_moves_obtained()
         
-        silph = ram_map.silph_co(self.game)
+        silph = ram_map.silph_co(self)
         rock_tunnel = ram_map.rock_tunnel(self.game)
         ssanne = ram_map.ssanne(self.game)
         mtmoon = ram_map.mtmoon(self.game)
@@ -481,6 +451,23 @@ class Environment(Base):
             if poke == 57 and level == 0:
                 self.glitch_state()
             info = {
+                "Data": {
+                    "leader1": int(ram_map.read_bit(self.game, 0xD755, 7)),
+                    "leader2": int(ram_map.read_bit(self.game, 0xD75E, 7)),
+                    "leader3": int(ram_map.read_bit(self.game, 0xD773, 7)),
+                    "leader4": int(ram_map.read_bit(self.game, 0xD792, 1)),
+                    "leader5": int(ram_map.read_bit(self.game, 0xD792, 1)),
+                    "leader6": int(ram_map.read_bit(self.game, 0xD7B3, 1)),
+                    "leader7": int(ram_map.read_bit(self.game, 0xD79A, 1)),
+                    "leader8": int(ram_map.read_bit(self.game, 0xD751, 1)),
+                    "got_bike": int(ram_map.read_bit(self.game, 0xD75F, 0)),
+                    "beat_hideout": int(ram_map.read_bit(self.game, 0xD81B, 7)),
+                    "saved_fuji": int(ram_map.read_bit(self.game, 0xD7E0, 7)),
+                    "got_flute": int(ram_map.read_bit(self.game, 0xD76C, 0)),
+                    "beat_silphco": int(ram_map.read_bit(self.game, 0xD838, 7)),
+                    "beat_snorlax_12": int(ram_map.read_bit(self.game, 0xD7D8, 7)),
+                    "beat_snorlax_16": int(ram_map.read_bit(self.game, 0xD7E0, 1)),
+                },
                 "Events": {
                     "silph": silph,
                     "rock_tunnel": rock_tunnel,
@@ -536,7 +523,6 @@ class Environment(Base):
                 "badge_7": float(badges >= 7),
                 "badge_8": float(badges >= 8),
                 "badges": float(badges),
-                "maps_explored": np.sum(self.seen_maps),
                 "party_size": party_size,
                 "moves_obtained": sum(self.moves_obtained),
                 "deaths": self.death_count,
