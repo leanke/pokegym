@@ -375,7 +375,7 @@ class Environment(Base):
         self.update_pokedex()
         self.update_moves_obtained()
         
-        silph = ram_map.silph_co(self)
+        silph = ram_map.silph_co(self.game)
         rock_tunnel = ram_map.rock_tunnel(self.game)
         ssanne = ram_map.ssanne(self.game)
         mtmoon = ram_map.mtmoon(self.game)
