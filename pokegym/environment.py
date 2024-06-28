@@ -58,20 +58,28 @@ class Base:
         self.obs_size = (R // 2, C // 2, 3) # 72, 80, 3
         self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
         # self.obs_size += (4,)
-        self.observation_space = spaces.Dict(
-            {
-                "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
-                "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
-                "flute": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                "bike": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                "hideout": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                "tower": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                "silphco": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                "snorlax_12": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                "snorlax_16": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
+        if self.extra_obs:
+            self.observation_space = spaces.Dict(
+                {
+                    "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
+                    "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
+                    "flute": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "bike": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "hideout": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "tower": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "silphco": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "snorlax_12": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "snorlax_16": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
 
-            })
+                })
+        else:
+            self.observation_space = spaces.Dict(
+                {
+                    "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
+                    "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
+                })
+
         self.action_space = spaces.Discrete(len(ACTIONS))
     
     def _get_obs(self):
