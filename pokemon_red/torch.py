@@ -16,14 +16,14 @@ class Recurrent(pufferlib.models.LSTMWrapper):
         super().__init__(env, policy, input_size, hidden_size, num_layers)
     
 class Policy(nn.Module):
-    def __init__(self, env, *args, framestack=4, flat_size=64*5*6, input_size=512, hidden_size=512, output_size=512, channels_last=True, downsample=1, **kwargs):
+    def __init__(self, env, *args, framestack=4, flat_size=64*5*6+11, input_size=512, hidden_size=512, output_size=512, channels_last=True, downsample=1, **kwargs):
         super().__init__()
         self.channels_last = channels_last
         self.downsample = downsample
         self.dtype = pufferlib.pytorch.nativize_dtype(env.emulated)
         self.actor = pufferlib.pytorch.layer_init(nn.Linear(hidden_size, env.single_action_space.n), std=0.01)
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
-        self.extra_obs = env.extra_obs
+        self.extra_obs = env.unwrapped.env.extra_obs # env.unwrapped is GymnasiumPufferEnv
 
         self.screen= nn.Sequential(
             pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 8, stride=4)),
@@ -37,6 +37,7 @@ class Policy(nn.Module):
             # nn.ReLU(),
         )
         self.embedding = torch.nn.Embedding(250, 4, dtype=torch.float32)
+        
         self.linear= nn.Sequential(
             pufferlib.pytorch.layer_init(nn.Linear(flat_size, hidden_size)),
             nn.ReLU(),)
@@ -47,29 +48,30 @@ class Policy(nn.Module):
             observation['screen'], 
             observation['fixed_window'],
             ], dim=-1)
+        
+        if self.channels_last:
+            screen = screens.permute(0, 3, 1, 2)
+        if self.downsample > 1:
+            screen = screens[:, :, ::self.downsample, ::self.downsample]
+
         if self.extra_obs:
             cat = torch.cat(
             (
                 self.screen(screen.float() / 255.0).squeeze(1),
-                self.embedding(observations["map_n"].long()).squeeze(1),
-                observations["flute"].float(),
-                observations["bike"].float(),
-                observations["hideout"].float(),
-                observations["tower"].float(),
-                observations["silphco"].float(),
-                observations["snorlax_12"].float(),
-                observations["snorlax_16"].float(),
+                self.embedding(observation["map_n"].long()).squeeze(1),
+                observation["flute"].float(),
+                observation["bike"].float(),
+                observation["hideout"].float(),
+                observation["tower"].float(),
+                observation["silphco"].float(),
+                observation["snorlax_12"].float(),
+                observation["snorlax_16"].float(),
             ),
             dim=-1,
         )
         else:
             cat = self.screen(screen.float() / 255.0),
 
-        
-        if self.channels_last:
-            screen = screens.permute(0, 3, 1, 2)
-        if self.downsample > 1:
-            screen = screens[:, :, ::self.downsample, ::self.downsample]
         return self.linear(cat), None
 
     def decode_actions(self, flat_hidden, lookup, concat=None):

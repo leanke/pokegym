@@ -83,14 +83,14 @@ class Base:
             return {
                 "screen": self.render(),
                 "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
-                "flute": int(ram_map.read_bit(self.game, 0xD76C, 0)),
-                "bike": int(ram_map.read_bit(self.game, 0xD75F, 0)),
-                "hideout": int(ram_map.read_bit(self.game, 0xD81B, 7)),
-                "tower": int(ram_map.read_bit(self.game, 0xD7E0, 7)),
-                "silphco": int(ram_map.read_bit(self.game, 0xD838, 7)),
-                "snorlax_12": int(ram_map.read_bit(self.game, 0xD7D8, 7)),
-                "snorlax_16": int(ram_map.read_bit(self.game, 0xD7E0, 1)),
-                "map_n": map_n,
+                "flute": np.array(ram_map.read_bit(self.game, 0xD76C, 0), dtype=np.uint8),
+                "bike": np.array(ram_map.read_bit(self.game, 0xD75F, 0), dtype=np.uint8),
+                "hideout": np.array(ram_map.read_bit(self.game, 0xD81B, 7), dtype=np.uint8),
+                "tower": np.array(ram_map.read_bit(self.game, 0xD7E0, 7), dtype=np.uint8),
+                "silphco": np.array(ram_map.read_bit(self.game, 0xD838, 7), dtype=np.uint8),
+                "snorlax_12": np.array(ram_map.read_bit(self.game, 0xD7D8, 7), dtype=np.uint8),
+                "snorlax_16": np.array(ram_map.read_bit(self.game, 0xD7E0, 1), dtype=np.uint8),
+                "map_n": np.array(map_n, dtype=np.uint8),
             }
         else:
             return {
