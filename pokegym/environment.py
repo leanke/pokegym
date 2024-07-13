@@ -30,18 +30,18 @@ CUT_SEQ = [((0x3D, 1, 1, 0, 4, 1), (0x3D, 1, 1, 0, 1, 1)), ((0x50, 1, 1, 0, 4, 1
 class Environment:
     def __init__(self, rom_path="pokemon_red.gb", state_path=None, headless=True, save_video=False, quiet=False, verbose=False, **kwargs,):
 
+        # Initialize emulator
         if rom_path is None or not os.path.exists(rom_path):
             raise FileNotFoundError("No ROM file found in the specified directory.")
         if state_path is None:
             state_path = STATE_PATH + "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
-
         self.game, self.screen = make_env(rom_path, headless, quiet, save_video=True, **kwargs)
         self.initial_states = [open_state_file(state_path)]
         self.save_video = save_video
         self.headless = headless
-        self.env_id = Path(f'{str(uuid.uuid4())[:4]}')
-        self.s_path = Path(f"videos/{self.env_id}")
-        self.reset_count = 0
+        self.verbose = verbose
+
+        # Policy things
         self.extra_obs = True
         R, C = self.screen.raw_screen_buffer_dims()
         self.obs_size = (R // 2, C // 2, 3) # 72, 80, 3
@@ -49,28 +49,32 @@ class Environment:
         self.observation_space = spaces.Dict({})
         self.obs_space()
         self.action_space = spaces.Discrete(len(ACTIONS))
-        self.verbose = verbose
-        self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        self.poketower = [142, 143, 144, 145, 146, 147, 148]
-        self.pokehideout = [199, 200, 201, 202, 203] # , 135
-        self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
-
-        load_pyboy_state(self.game, self.load_last_state())
         
+        # Load state
+        load_pyboy_state(self.game, self.load_last_state())
+        self.env_id = Path(f'{str(uuid.uuid4())[:4]}')
+        self.s_path = Path(f"videos/{self.env_id}")
+        
+        # Configs
         self.full_resets = False
         self.anneal = False
         self.manual_reset = False
         self.stream_wrapper = True
-
         self.max_episode_steps = 20480
         self.rew_reset = 10240
 
+        # Misc
         self.is_dead = False
         self.used_cut = 0
         self.reset_mem = 5
         self.countdown = 10
         self.death_count = 0
+        self.reset_count = 0
         self.full_reset_count = 0
+        self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        self.poketower = [142, 143, 144, 145, 146, 147, 148]
+        self.pokehideout = [199, 200, 201, 202, 203] # , 135
+        self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
 
     def get_fixed_window(self, arr, y, x, window_size):
         height, width, _ = arr.shape
@@ -148,22 +152,9 @@ class Environment:
                 "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
             }
 
-    def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
+    def reset(self, seed=None, options=None, reward_scale=4.0):
         self.reset_count += 1
-        self.countdown -= 1
-
-        if self.full_resets:
-            if self.countdown == 0:
-                self.reset_mem += 1
-                self.countdown = self.reset_mem
-                load_pyboy_state(self.game, self.load_last_state())
-                self.full_reset_count += 1
-
-        if self.anneal:
-            if self.countdown == 0:
-                self.countdown = 10
-                self.max_episode_steps += 2048
-            load_pyboy_state(self.game, self.load_last_state())
+        self.reset_state()
 
         if self.save_video:
             base_dir = self.s_path
@@ -174,7 +165,6 @@ class Environment:
 
         self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
         self.time = 0
-        # self.max_episode_steps = max_episode_steps
         self.reward_scale = reward_scale
         self.last_reward = None
 
@@ -425,7 +415,7 @@ class Environment:
         event_reward = sum([silph, rock_tunnel, ssanne, mtmoon, routes, misc, snorlax, hmtm, bill, oak, towns, lab, mansion, safari, dojo, hideout, tower, gym1, gym2, gym3, gym4, gym5, gym6, gym7, gym8, rival])
         seen_pokemon_reward = self.reward_scale * sum(self.seen_pokemon)
         caught_pokemon_reward = self.reward_scale * sum(self.caught_pokemon)
-        moves_obtained_reward = self.reward_scale *sum(self.moves_obtained) # self.reward_scale * 
+        moves_obtained_reward = self.reward_scale *sum(self.moves_obtained.values())
         used_cut_rew = self.used_cut * 0.1
         cut_coords = sum(self.cut_coords.values()) * 1.0
         cut_tiles = len(self.cut_tiles) * 1.0
@@ -489,10 +479,11 @@ class Environment:
                 for j in range(4):
                     move_id = self.game.get_memory_value(i + j + 8)
                     if move_id != 0:
-                        if move_id != 0:
-                            self.moves_obtained[move_id] = 1
                         if move_id == 15:
                             self.cut = 1
+                            self.moves_obtained[move_id] = 9
+                        else:
+                            self.moves_obtained[move_id] = 1
         # Scan current box (since the box doesn't auto increment in pokemon red)
         num_moves = 4
         box_struct_length = 25 * num_moves * 2
@@ -533,6 +524,20 @@ class Environment:
     def load_random_state(self):
         rand_idx = random.randint(0, len(self.initial_states) - 1)
         return self.initial_states[rand_idx]
+    
+    def reset_state(self):
+        self.countdown -= 1
+        if self.full_resets:
+            if self.countdown == 0:
+                self.reset_mem += 1
+                self.countdown = self.reset_mem
+                load_pyboy_state(self.game, self.load_last_state())
+                self.full_reset_count += 1
+        if self.anneal:
+            if self.countdown == 0:
+                self.countdown = 10
+                self.max_episode_steps += 2048
+            load_pyboy_state(self.game, self.load_last_state())
     
     def infos_dict(self):
         return {
@@ -586,6 +591,8 @@ class Environment:
                     "moves_obtained": sum(self.moves_obtained),
                     "deaths": self.death_count,
                     'used_cut': self.used_cut,
+                    "cut_tiles": len(self.cut_tiles),
+                    "cut_coords": sum(self.cut_coords.values()),
                 }
             }
 
