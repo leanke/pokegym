@@ -71,7 +71,7 @@ default:
 
 
 pokemon_red:
-  use_rnn: False
+  use_rnn: True
   train:
     total_timesteps: 10_000_000_000
     num_envs: 96 
