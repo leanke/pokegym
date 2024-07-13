@@ -1,17 +1,5 @@
-# ######################################################################################
-#                                        Ram_map
-# ######################################################################################
-
-# Data Crystal - https://datacrystal.romhacking.net/wiki/Pok%C3%A9mon_Red/Blue:RAM_map
-# No Comments - https://github.com/pret/pokered/blob/91dc3c9f9c8fd529bb6e8307b58b96efa0bec67e/constants/event_constants.asm
-# Comments - https://github.com/luckytyphlosion/pokered/blob/master/constants/event_constants.asm
-from collections import deque
-import numpy as np
 from pokegym import data
 
-CUT_GRASS_SEQ = deque([(0x52, 255, 1, 0, 1, 1), (0x52, 255, 1, 0, 1, 1), (0x52, 1, 1, 0, 1, 1)])
-CUT_FAIL_SEQ = deque([(-1, 255, 0, 0, 4, 1), (-1, 255, 0, 0, 1, 1), (-1, 255, 0, 0, 1, 1)])
-CUT_SEQ = [((0x3D, 1, 1, 0, 4, 1), (0x3D, 1, 1, 0, 1, 1)), ((0x50, 1, 1, 0, 4, 1), (0x50, 1, 1, 0, 1, 1)),]
 HP_ADDR = [0xD16C, 0xD198, 0xD1C4, 0xD1F0, 0xD21C, 0xD248]
 MAX_HP_ADDR = [0xD18D, 0xD1B9, 0xD1E5, 0xD211, 0xD23D, 0xD269]
 PARTY_SIZE_ADDR = 0xD163
@@ -39,7 +27,6 @@ QUEST = 5
 EVENT = 1
 BAD = -1
 
-# EVENT #####################################################################################################
 
 def silph_co(game):
   Beat_Silph_Co_2F_Trainer_0 = TRAINER * int(read_bit(game, 0xD825, 2))
@@ -398,11 +385,11 @@ def snorlax(game):
   return sum([route12_snorlax_fight, route12_snorlax_beat, route16_snorlax_fight, route16_snorlax_beat])
 
 def hmtm(game):
-  hm01 = HM * int(read_bit(game, 0xD803, 0))# cut
-  hm02 = HM * int(read_bit(game, 0xD7E0, 6))# fly
-  hm03 = HM * int(read_bit(game, 0xD857, 0))# strength
-  hm04 = HM * int(read_bit(game, 0xD78E, 0))# surf
-  hm05 = HM * int(read_bit(game, 0xD7C2, 0))# flash
+  hm01 = HM * int(read_bit(game, 0xD803, 0))
+  hm02 = HM * int(read_bit(game, 0xD7E0, 6))
+  hm03 = HM * int(read_bit(game, 0xD857, 0))
+  hm04 = HM * int(read_bit(game, 0xD78E, 0))
+  hm05 = HM * int(read_bit(game, 0xD7C2, 0))
 
   tm34 = TM * int(read_bit(game, 0xD755, 6))
   tm11 = TM * int(read_bit(game, 0xD75E, 6))
@@ -527,7 +514,7 @@ def hideout(game):
   rocket_hideout_4_door_unlocked = QUEST * int(read_bit(game, 0xD81B, 5))
   rocket_dropped_lift_key = QUEST * int(read_bit(game, 0xD81B, 6))
   beat_rocket_hideout_giovanni = GYM_LEADER * int(read_bit(game, 0xD81B, 7))
-  found_rocket_hideout = 10 * int(read_bit(game, 0xD77E, 1))
+  found_rocket_hideout = QUEST * int(read_bit(game, 0xD77E, 1))
 
   return sum([beat_rocket_hideout_1_trainer_0, beat_rocket_hideout_1_trainer_1, beat_rocket_hideout_1_trainer_2, beat_rocket_hideout_1_trainer_3,
     beat_rocket_hideout_1_trainer_4, beat_rocket_hideout_2_trainer_0, beat_rocket_hideout_3_trainer_0, beat_rocket_hideout_3_trainer_1,
@@ -597,7 +584,7 @@ def gym4(game):
 
 def gym5(game):
    #gym 5 Fuchsia	
-    five = GYM_LEADER * int(read_bit(game, 0xD7B3, 1))
+    five = GYM_LEADER * int(read_bit(game, 0xD792, 1))
     g5_1 = GYM_TRAINER * int(read_bit(game, 0xD792, 2)) #	"0xD792-2": "Beat Fuchsia Gym Trainer 0",
     g5_2 = GYM_TRAINER * int(read_bit(game, 0xD792, 3)) #	"0xD792-3": "Beat Fuchsia Gym Trainer 1",
     g5_3 = GYM_TRAINER * int(read_bit(game, 0xD792, 4)) #	"0xD792-4": "Beat Fuchsia Gym Trainer 2",
@@ -660,7 +647,7 @@ def rival(game):
 
   return sum([one, two, three, four, five, six, seven, eight, nine, Beat_Silph_Co_Rival])
 
-# UTIL #####################################################################################################
+######################################################################################################
 
 def bcd(num):
     return 10 * ((num >> 4) & 0x0F) + (num & 0x0F)
@@ -682,7 +669,7 @@ def read_uint16(game, start_addr):
     val_1 = game.get_memory_value(start_addr + 1)
     return 256 * val_256 + val_1
 
-# MISC #####################################################################################################
+######################################################################################################
 
 def get_hm_count(game):
     hm_ids = [0xC4, 0xC5, 0xC6, 0xC7, 0xC8]
@@ -703,7 +690,7 @@ def get_items_in_bag(game, one_indexed=0):
         item_ids.append(item_id + one_indexed)
     return item_ids
 
-def position(game): # this is [y, x, z]
+def position(game):
     r_pos = game.get_memory_value(Y_POS_ADDR)
     c_pos = game.get_memory_value(X_POS_ADDR)
     map_n = game.get_memory_value(MAP_N_ADDR)
@@ -738,11 +725,7 @@ def hp(game):
     return sum(party_hp) / sum_max_hp
 
 def used_cut(game):
-    if game.get_memory_value(WCUTTILE) == 61:
-        write_mem(game, 0xCD4D, 00) # address, byte to write resets tile check
-        return True
-    else:
-        return False
+    return game.get_memory_value(WCUTTILE)
 
 def write_mem(game, addr, value):
     mem = game.set_memory_value(addr, value)
@@ -751,89 +734,6 @@ def write_mem(game, addr, value):
 def badges(game):
     badges = game.get_memory_value(BADGE_1_ADDR)
     return bit_count(badges)
-
-def update_pokedex(game):
-    seen_pokemon = np.zeros(152, dtype=np.uint8)
-    caught_pokemon = np.zeros(152, dtype=np.uint8)
-    for i in range(0xD30A - 0xD2F7):
-        caught_mem = game.get_memory_value(i + 0xD2F7)
-        seen_mem = game.get_memory_value(i + 0xD30A)
-        for j in range(8):
-            caught_pokemon[8*i + j] = 1 if caught_mem & (1 << j) else 0
-            seen_pokemon[8*i + j] = 1 if seen_mem & (1 << j) else 0  
-    return sum(seen_pokemon), sum(caught_pokemon)
-
-def update_moves_obtained(game):
-    # Scan party
-    moves_obtained = {}
-    cut = 0
-    for i in [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247]:
-        if game.get_memory_value(i) != 0:
-            for j in range(4):
-                move_id = game.get_memory_value(i + j + 8)
-                if move_id != 0:
-                    if move_id != 0:
-                        moves_obtained[move_id] = 1
-                    if move_id == 15:
-                        cut = 1
-    # Scan current box (since the box doesn't auto increment in pokemon red)
-    num_moves = 4
-    box_struct_length = 25 * num_moves * 2
-    for i in range(game.get_memory_value(0xda80)):
-        offset = i*box_struct_length + 0xda96
-        if game.get_memory_value(offset) != 0:
-            for j in range(4):
-                move_id = game.get_memory_value(offset + j + 8)
-                if move_id != 0:
-                    moves_obtained[move_id] = 1
-    return sum(moves_obtained), cut
-
-# CUT #####################################################################################################
-
-def cut_array(game):
-  cut_coords = {}
-  cut_tiles = {} # set([])
-  cut_state = deque(maxlen=3)
-  if mem_val(game, 0xD057) == 0: # is_in_battle if 1
-    player_direction = game.get_memory_value(0xC109)
-    y, x, map_id = position()  # x, y, map_id
-    if player_direction == 0:  # down
-        coords = (x, y + 1, map_id)
-    if player_direction == 4:
-        coords = (x, y - 1, map_id)
-    if player_direction == 8:
-        coords = (x - 1, y, map_id)
-    if player_direction == 0xC:
-        coords = (x + 1, y, map_id)
-    cut_state.append(
-        (
-            game.get_memory_value(0xCFC6),
-            game.get_memory_value(0xCFCB),
-            game.get_memory_value(0xCD6A),
-            game.get_memory_value(0xD367),
-            game.get_memory_value(0xD125),
-            game.get_memory_value(0xCD3D),
-        )
-    )
-    if tuple(list(cut_state)[1:]) in CUT_SEQ:
-        cut_coords[coords] = 5 # from 14
-        cut_tiles[cut_state[-1][0]] = 1
-    elif cut_state == CUT_GRASS_SEQ:
-        cut_coords[coords] = 0.001
-        cut_tiles[cut_state[-1][0]] = 1
-    elif deque([(-1, *elem[1:]) for elem in cut_state]) == CUT_FAIL_SEQ:
-        cut_coords[coords] = 0.001
-        cut_tiles[cut_state[-1][0]] = 1
-    if int(read_bit(game, 0xD803, 0)):
-        if check_if_in_start_menu(game):
-            seen_start_menu = 1
-        if check_if_in_pokemon_menu(game):
-            seen_pokemon_menu = 1
-        if check_if_in_stats_menu(game):
-            seen_stats_menu = 1
-        if check_if_in_bag_menu(game):
-            seen_bag_menu = 1
-  return cut_coords, cut_tiles, seen_start_menu, seen_pokemon_menu, seen_stats_menu, seen_bag_menu
 
 def check_if_in_start_menu(game) -> bool:
     return (
@@ -867,174 +767,15 @@ def check_if_in_bag_menu(game) -> bool:
         and mem_val(game, 0xCF94) == 3
     )
 
-# EXPL #####################################################################################################
-
-def explore(game, seen_coords, map_n):
-  seen_coords= set()
-  poketower = [142, 143, 144, 145, 146, 147, 148]
-  pokehideout = [199, 200, 201, 202, 203]
-  silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
-  if int(read_bit(game, 0xD81B, 7)) == 0: # pre hideout
-      if map_n in poketower:
-          exploration_reward = 0
-      elif map_n in pokehideout:
-          exploration_reward = (0.03 * len(seen_coords))
-      else:
-          exploration_reward = (0.02 * len(seen_coords))
-  elif int(read_bit(game, 0xD7E0, 7)) == 0 and int(read_bit(game, 0xD81B, 7)) == 1: # hideout done poketower not done
-      if map_n in poketower:
-          exploration_reward = (0.03 * len(seen_coords))
-      else:
-          exploration_reward = (0.02 * len(seen_coords))
-  elif int(read_bit(game, 0xD76C, 0)) == 0 and int(read_bit(game, 0xD7E0, 7)) == 1: # tower done no flute
-      if map_n == 149:
-          exploration_reward = (0.03 * len(seen_coords))
-      elif map_n in poketower:
-          exploration_reward = (0.01 * len(seen_coords))
-      elif map_n in pokehideout:
-          exploration_reward = (0.01 * len(seen_coords))
-      else:
-          exploration_reward = (0.02 * len(seen_coords))
-  elif int(read_bit(game, 0xD838, 7)) == 0 and int(read_bit(game, 0xD76C, 0)) == 1: # flute gotten pre silphco
-      if map_n in silphco:
-          exploration_reward = (0.03 * len(seen_coords))
-      elif map_n in poketower:
-          exploration_reward = (0.01 * len(seen_coords))
-      elif map_n in pokehideout:
-          exploration_reward = (0.01 * len(seen_coords))
-      else:
-          exploration_reward = (0.02 * len(seen_coords))
-  elif int(read_bit(game, 0xD838, 7)) == 1 and int(read_bit(game, 0xD76C, 0)) == 1: # flute gotten post silphco
-      if map_n in silphco:
-          exploration_reward = (0.01 * len(seen_coords))
-      elif map_n in poketower:
-          exploration_reward = (0.01 * len(seen_coords))
-      elif map_n in pokehideout:
-          exploration_reward = (0.01 * len(seen_coords))
-      else:
-          exploration_reward = (0.02 * len(seen_coords))
-  else:
-      exploration_reward = (0.02 * len(seen_coords))
-  return exploration_reward
 
 
-# ##################################################################################################################
-#                                                     # Notes
-# ##################################################################################################################
 
-## Misc
-    # 0xc4f2 check for EE hex for text box arrow is present
 
-## Menu Data
-    # Coordinates of the position of the cursor for the top menu item (id 0)
-    # CC24 : Y position
-    # CC25 : X position
-    # CC26 - Currently selected menu item (topmost is 0)
-    # CC27 - Tile "hidden" by the menu cursor
-    # CC28 - ID of the last menu item
-    # CC29 - bitmask applied to the key port for the current menu
-    # CC2A - ID of the previously selected menu item
-    # CC2B - Last position of the cursor on the party / Bill's PC screen
-    # CC2C - Last position of the cursor on the item screen
-    # CC2D - Last position of the cursor on the START / battle menu
-    # CC2F - Index (in party) of the Pokémon currently sent out
-    # CC30~CC31 - Pointer to cursor tile in C3A0 buffer
-    # CC36 - ID of the first displayed menu item
-    # CC35 - Item highlighted with Select (01 = first item, 00 = no item, etc.)
-    # CC3A and CC3B are unused 
-    # cc51 and cc52 both read 00 when menu is closed 
 
-## Pokémon Mart
-    # JPN addr. 	INT addr. 	Description
-    # CF62 	    CF7B 	    Total Items
-    # CF63 	    CF7C 	    Item 1
-    # CF64 	    CF7D 	    Item 2
-    # CF65 	    CF7E 	    Item 3
-    # CF66 	    CF7F 	    Item 4
-    # CF67 	    CF80 	    Item 5
-    # CF68 	    CF81 	    Item 6
-    # CF69 	    CF82 	    Item 7
-    # CF70 	    CF83 	    Item 8
-    # CF71 	    CF84 	    Item 9
-    # CF72 	    CF85 	    Item 10 
 
-## Event Flags 
-    # D751 - Fought Giovanni Yet?
-    # D755 - Fought Brock Yet?
-    # D75E - Fought Misty Yet?
-    # D773 - Fought Lt. Surge Yet?
-    # D77C - Fought Erika Yet?
-    # D792 - Fought Koga Yet?
-    # D79A - Fought Blaine Yet?
-    # D7B3 - Fought Sabrina Yet?
-    # D782 - Fought Articuno Yet?
-    # D7D4 - Fought Zapdos Yet?
-    # D7EE - Fought Moltres Yet?
-    # D710 - Fossilized Pokémon?
-    # D7D8 - Fought Snorlax Yet (Vermilion)
-    # D7E0 - Fought Snorlax Yet? (Celadon)
-    # D803 - Is SS Anne here
-    # D5F3 - Have Town map?
-    # D60D - Have Oak's Parcel?
-    # D5A6 to D5C5 : Missable Objects Flags (flags for every (dis)appearing sprites, like the guard in Cerulean City or the Pokéballs in Oak's Lab)
-    # D5AB - Starters Back?
-    # D5C0(bit 1) - 0=Mewtwo appears, 1=Doesn't (See D85F)
-    # D700 - Bike Speed
-    # D70B - Fly Anywhere Byte 1
-    # D70C - Fly Anywhere Byte 2
-    # D70D - Safari Zone Time Byte 1
-    # D70E - Safari Zone Time Byte 2
-    # D714 - Position in Air
-    # D72E - Did you get Lapras Yet?
-    # D732 - Debug New Game
-    # D790 - If bit 7 is set, Safari Game over
-    # D85F - Mewtwo can be caught if bit 2 clear - Needs D5C0 bit 1 clear, too 
 
-## Item IDs & String
-    # 1, 2, 3, 4, 6, 11, 16, 17, 18, 19, 20, 41, 42, 72, 73, 196, 197, 198, 199, 200, 53, 54
-    # 001 	0x01 	Master Ball
-    # 002 	0x02 	Ultra Ball
-    # 003 	0x03 	Great Ball
-    # 004 	0x04 	Poké Ball
-    # 006 	0x06 	Bicycle
-    # 011 	0x0B 	Antidote
-    # 016 	0x10 	Full Restore
-    # 017 	0x11 	Max Potion
-    # 018 	0x12 	Hyper Potion
-    # 019 	0x13 	Super Potion
-    # 020 	0x14 	Potion
-    # 041 	0x29 	Dome Fossil
-    # 042 	0x2A 	Helix Fossil
-    # 072 	0x48 	Silph Scope
-    # 073 	0x49 	Poké Flute
-    # 196 	0xC4 	HM01
-    # 197 	0xC5 	HM02
-    # 198 	0xC6 	HM03
-    # 199 	0xC7 	HM04
-    # 200 	0xC8 	HM05
-    # 053 	0x35 	Revive
-    # 054 	0x36 	Max Revive
 
-## Item Bag
-    # 0xD31D - Total Items
-    # 0xD31E - Item 1
-    # 0xD320 - Item 2
-    # 0xD322 - Item 3
-    # 0xD324 - Item 4
-    # 0xD326 - Item 5
-    # 0xD328 - Item 6
-    # 0xD32A - Item 7
-    # 0xD32C - Item 8
-    # 0xD32E - Item 9
-    # 0xD330 - Item 10
-    # 0xD332 - Item 11
-    # 0xD334 - Item 12
-    # 0xD336 - Item 13
-    # 0xD338 - Item 14
-    # 0xD33A - Item 15
-    # 0xD33C - Item 16
-    # 0xD33E - Item 17
-    # 0xD340 - Item 18
-    # 0xD342 - Item 19
-    # 0xD344 - Item 20
-    # 0xD346 - Item End of List
+
+
+
+
