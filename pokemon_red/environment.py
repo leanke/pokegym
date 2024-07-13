@@ -15,12 +15,13 @@ def env_creator(name='pokemon_red'):
 def make(name, headless: bool = True, state_path=None):
     '''Pokemon Red'''
     env = Environment(headless=headless, state_path=state_path)
-    env = StreamWrapper(env, stream_metadata = { # stream_metadata is optional
-            "user": f"username\n", # your username
-            "color": "", # color for your text :)
-            "extra": "", # any extra text you put here will be displayed
-        }
-    )
+    if env.stream_wrapper:
+        env = StreamWrapper(env, stream_metadata = { # stream_metadata is optional
+                "user": f"username\n", # your username
+                "color": "", # color for your text :)
+                "extra": "", # any extra text you put here will be displayed
+            }
+        )
     env = RenderWrapper(env)
     env = pufferlib.postprocess.EpisodeStats(env)
     return pufferlib.emulation.GymnasiumPufferEnv(env=env)

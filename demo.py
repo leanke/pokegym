@@ -40,7 +40,7 @@ def load_config(parser, config_path='config.yaml'):
     pkg_config = config[pkg_name]
     # TODO: Check if actually installed
     env_module = pufferlib.utils.install_and_import(
-        f'pufferlib.environments.{pkg_name}')
+        f'{pkg_name}')
     make_name = env_config.get('env_name', None)
     make_env_args = [make_name] if make_name else []
     make_env = env_module.env_creator(*make_env_args)

@@ -183,6 +183,7 @@ class Environment(Base):
         self.full_resets = False
         self.anneal = False
         self.manual_reset = False
+        self.stream_wrapper = False
 
         self.max_episode_steps = 20480
         self.rew_reset = 10240
@@ -609,6 +610,7 @@ class Environment(Base):
                     "beat_silphco": int(ram_map.read_bit(self.game, 0xD838, 7)),
                     "beat_snorlax_12": int(ram_map.read_bit(self.game, 0xD7D8, 7)),
                     "beat_snorlax_16": int(ram_map.read_bit(self.game, 0xD7E0, 1)),
+                    
                 },
                 "Events": {
                     "silph": silph,

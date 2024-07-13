@@ -24,7 +24,8 @@ dependencies = [
     "gym==0.23",
     "matplotlib",
     "mediapy",
-    "websockets"
+    "websockets",
+    "GPUtil"
 ]
 [tool.setuptools.packages.find]
 where = ["."]
