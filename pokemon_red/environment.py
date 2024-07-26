@@ -8,6 +8,7 @@ from pokegym import Environment
 import pufferlib.emulation
 import pufferlib.postprocess
 from .stream_wrapper import StreamWrapper
+from .obs_wrapper import ObsWrapper
 
 def env_creator(name='pokemon_red'):
     return functools.partial(make, name)
@@ -15,9 +16,11 @@ def env_creator(name='pokemon_red'):
 def make(name, headless: bool = True, state_path=None):
     '''Pokemon Red'''
     env = Environment(headless=headless, state_path=state_path)
+    if env.add_boey_obs:
+        env = ObsWrapper(env)
     if env.stream_wrapper:
         env = StreamWrapper(env, stream_metadata = { # stream_metadata is optional
-                "user": f"username\n", # your username
+                "user": f"username@boey\n", # your username
                 "color": "", # color for your text :)
                 "extra": "", # any extra text you put here will be displayed
             }
