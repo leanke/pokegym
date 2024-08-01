@@ -28,7 +28,7 @@ CUT_FAIL_SEQ = deque([(-1, 255, 0, 0, 4, 1), (-1, 255, 0, 0, 1, 1), (-1, 255, 0,
 CUT_SEQ = [((0x3D, 1, 1, 0, 4, 1), (0x3D, 1, 1, 0, 1, 1)), ((0x50, 1, 1, 0, 4, 1), (0x50, 1, 1, 0, 1, 1)),]
 
 class Environment:
-    def __init__(self, env_config, rom_path="pokemon_red.gb", state_path=None, headless=True, save_video=False, quiet=False, verbose=False, **kwargs,):
+    def __init__(self, env_config, rom_path="pokemon_red.gb", state_path=None, headless=True, quiet=False, verbose=False, **kwargs,):
 
         # Initialize emulator
         if rom_path is None or not os.path.exists(rom_path):
@@ -37,7 +37,6 @@ class Environment:
             state_path = STATE_PATH + "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
         self.game, self.screen = make_env(rom_path, headless, quiet, save_video=True, **kwargs)
         self.initial_states = [open_state_file(state_path)]
-        self.save_video = save_video
         self.headless = headless
         self.verbose = verbose
         
@@ -53,6 +52,7 @@ class Environment:
         self.expl_scale = env_config['expl_scale']
         self.reset_mem = env_config['reset_mem']
         self.countdown = env_config['countdown']
+        self.save_video = env_config['save_video']
 
         R, C = self.screen.raw_screen_buffer_dims()
         self.obs_size = (R // 2, C // 2, 3) # 72, 80, 3
@@ -380,51 +380,12 @@ class Environment:
         elif int(ram_map.read_bit(self.game, 0xD838, 7)) == 0 and int(ram_map.read_bit(self.game, 0xD76C, 0)) == 1: # flute gotten pre silphco
             if map_n in self.silphco:
                 exploration_reward = (0.03 * len(self.seen_coords))
-            # elif map_n in self.poketower:
-            #     exploration_reward = (0.01 * len(self.seen_coords))
-            # elif map_n in self.pokehideout:
-            #     exploration_reward = (0.01 * len(self.seen_coords))
             else:
                 exploration_reward = (0.02 * len(self.seen_coords))
-        # elif int(ram_map.read_bit(self.game, 0xD838, 7)) == 1 and int(ram_map.read_bit(self.game, 0xD76C, 0)) == 1: # flute gotten post silphco
-        #     if map_n in self.silphco:
-        #         exploration_reward = (0.01 * len(self.seen_coords))
-        #     elif map_n in self.poketower:
-        #         exploration_reward = (0.01 * len(self.seen_coords))
-        #     elif map_n in self.pokehideout:
-        #         exploration_reward = (0.01 * len(self.seen_coords))
-        #     else:
-        #         exploration_reward = (0.02 * len(self.seen_coords))
         elif map_n == 7: # TODO: Cleanup maybe conditional on surf and teeth idk
-            # if map_n == 7: # Fuchsia
             exploration_reward = (0.03 * len(self.seen_coords))
-            # elif map_n in self.safari:
-            #     exploration_reward = (0.03 * len(self.seen_coords))
-            # else:
-            #     exploration_reward = (0.02 * len(self.seen_coords))
         else:
             exploration_reward = (0.02 * len(self.seen_coords))
-
-        # ## as more route trainer events are don reward by the length of how many are
-        # ## do the same with other events such as gyms 
-        # ## work on better map_n logic for late game expl
-        # ## safari steps start at 502 make safari minigame
-        # ##  lock agents to areas by loading states where they need to be on resets
-        # ## 
-        # ## 
-
-
-        # # TODO: Cleanup
-        # if pokeflute and not snorlax1
-        #     if map_n == rt_16:
-        #         extra_expl = 1
-        #     else:
-        #         extra_expl = 0
-        # if pokeflute and not snorlax2
-        #     if map_n == rt_12:
-        #         extra_expl = 1
-        #     else:
-        #         extra_expl = 0
         return exploration_reward
 
     def cut_rew(self):
