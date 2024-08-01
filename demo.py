@@ -99,7 +99,6 @@ def env_creator(wrappers: List[Dict[str, Any]], env_config: List[Dict[str, Any]]
         env = Environment(env_config)  
         if wrappers['obs_wrapper']:
             env = ObsWrapper(env)
-            print('obs_wrapper')
         if wrappers['stream_wrapper']:
             env = StreamWrapper(env, stream_metadata = {"user": f"{wrappers['stream_wrapper_name']}\n",})
         env = RenderWrapper(env)
