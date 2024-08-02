@@ -49,9 +49,9 @@ class Policy(nn.Module):
             nn.Flatten(),
         )
         self.map_embedding = torch.nn.Embedding(250, 4, dtype=torch.float32) # 6? or 4?
-        self.poke_id = nn.Embedding(257, 8)
+        self.poke_id = nn.Embedding(177, 8)
         self.poke_status = nn.Embedding(8, 8)
-        self.poke_type = nn.Embedding(16, 8)
+        self.poke_type = nn.Embedding(15, 8)
         self.pokemon_embedding = nn.Linear(in_features=38, out_features=16) # input: id, status, type1, type2, stats_level # 8+8+8+8+6 # output: 16?
         
         self.linear= nn.Sequential(
@@ -64,7 +64,6 @@ class Policy(nn.Module):
             observation['screen'], 
             observation['fixed_window'],
             ], dim=-1)
-        
         if self.channels_last:
             screen = screens.permute(0, 3, 1, 2)
         if self.downsample > 1:
@@ -120,7 +119,6 @@ class Policy(nn.Module):
         type_1_embedded = self.poke_type(type_1)
         # type_2_embedded = self.poke_type(type_2)
         # stats_level_flatten = torch.tensor(observation[3:], dtype=torch.float32)
-        # T()
         embedded_cat = torch.cat([pokemon_id_embedded, type_1_embedded,], dim=1) # status_embedded, , stats_level_flatten.unsqueeze(0)]  type_2_embedded,
         # print(embedded_cat)
 
@@ -129,9 +127,9 @@ class Policy(nn.Module):
     def get_embeds(self):
         ids = [""] + [v['name'] for v in poke_dict.values()]
         stats_id =  ['None', 'sleep-0', 'sleep-1', 'sleep-2', 'Poison', 'Burn', 'Freeze', 'Paralysis']
-        type_id = ['Normal', 'Fighting', 'Flying', 'Poison', 'Ground', 'Rock', 'Bug', 'Ghost', 'Fire', 'Water', 'Grass', 'Electric', 'psycic', 'ice', 'dragon']
-        id_shit = ids + type_id #  + stats_id
-        shit = torch.cat([self.poke_id.weight, self.poke_type.weight], dim=0) # , self.poke_status.weight
+        type1_id = ['Normal', 'Fighting', 'Flying', 'Poison', 'Ground', 'Rock', 'Bug', 'Ghost', 'Fire', 'Water', 'Grass', 'Electric', 'psycic', 'ice', 'dragon']
+        id_shit = ids + type1_id #  + stats_id
+        shit = [torch.cat([self.poke_id.weight, self.poke_type.weight], dim=0)] # , self.poke_status.weight
         return id_shit, shit
     
     
