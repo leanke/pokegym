@@ -403,13 +403,13 @@ moves_dict = {
     165: {"Move": 'Struggle', 'Type': 'Normal', 'Category': 'Physical', 'Power': 1, 'PP': 50}
 }
 
-status_dict = {
-    0x08: 'Poison',
-    # 0x04: 'Burn',
-    # 0x05: 'Frozen',
-    # 0x06: 'Paralyze',
-    0x00: 'None',
-} 
+# status_dict = {
+#     "frozen":
+#  Bit 5 : Frozen
+#  Bit 4 : Burned
+#  Bit 3 : Poisoned
+#  Bits 0-2 : Sleep counter
+# } 
 
 items_dict = {
     1: {'decimal': 1, 'hex': '0x01', 'Item': 'Master Ball'},

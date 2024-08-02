@@ -54,7 +54,7 @@ def create(config, vecenv, policy, optimizer=None, wandb=None):
 
     if config.compile:
         policy = torch.compile(policy, mode=config.compile_mode)
-
+    # breakpoint()
     optimizer = torch.optim.Adam(policy.parameters(),
         lr=config.learning_rate, eps=1e-5)
 
@@ -313,6 +313,8 @@ def train(data):
 
         if data.epoch % config.checkpoint_interval == 0 or done_training:
             save_checkpoint(data)
+            columns, embeddings = data.policy.policy.get_embeds()
+            data.wandb.log({'embeddings': data.wandb.Table(columns=columns, data=embeddings)})
             data.msg = f'Checkpoint saved at update {data.epoch}'
 
         if done_training:
@@ -528,6 +530,7 @@ def save_checkpoint(data):
     state_path = os.path.join(path, 'trainer_state.pt')
     torch.save(state, state_path + '.tmp')
     os.rename(state_path + '.tmp', state_path)
+
     return model_path
 
 def try_load_checkpoint(data):

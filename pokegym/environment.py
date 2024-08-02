@@ -123,9 +123,13 @@ class Environment:
                     "snorlax_12": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
                     "snorlax_16": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
                     "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
-                } #| {
-                   # f"{event}": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8)for event in data.events_list
-                    )
+                    "player_poke": spaces.Box(low=np.array([0, 0, 0, 1, 0, 0, 0, 0, 0], dtype=np.float32), 
+                                              high=np.array([256, 15, 15, 100, 714, 714, 714, 714, 714], dtype=np.float32), 
+                                              shape=(9,), dtype=np.float32),
+                    "op_poke": spaces.Box(low=np.array([0, 0, 0, 1, 0, 0, 0, 0, 0], dtype=np.float32), 
+                                              high=np.array([256, 15, 15, 100, 714, 714, 714, 714, 714], dtype=np.float32), 
+                                              shape=(9,), dtype=np.float32),
+                })
         else:
             self.observation_space = spaces.Dict(
                 {
@@ -150,9 +154,9 @@ class Environment:
                 "snorlax_12": np.array(ram_map.read_bit(self.game, 0xD7D8, 7), dtype=np.uint8),
                 "snorlax_16": np.array(ram_map.read_bit(self.game, 0xD7E0, 1), dtype=np.uint8),
                 "map_n": np.array(map_n, dtype=np.uint8),
-            } #| {
-            #     f"{event}": np.array(ram_map.read_bit(self.game, event[0], event[1]), dtype=np.uint8) for event in data.events_list
-            # }
+                "player_poke": np.array([ram_map.player_poke(self.game)], dtype=np.float32),
+                "op_poke": np.array([ram_map.op_poke(self.game)], dtype=np.float32),
+            }
         else:
             return {
                 "screen": self.render(),

@@ -671,6 +671,39 @@ def read_uint16(game, start_addr):
 
 ######################################################################################################
 
+def player_poke(game):
+    id = game.get_memory_value(0xD014)
+    # status = game.get_memory_value(0xD018)
+    type_1 = game.get_memory_value(0xD019)
+    type_2 = game.get_memory_value(0xD01A)
+    level = game.get_memory_value(0xD022)
+    max_hp = read_uint16(game, 0xD023)  
+    attack = read_uint16(game, 0xD025)
+    defense = read_uint16(game, 0xD027)
+    speed = read_uint16(game, 0xD029)
+    special = read_uint16(game, 0xD02B)
+    if mem_val(game, 0xD057) == 0: # is_in_battle if 1
+       return [0,0,0,0,0,0,0,0,0]
+    else:
+        return [id, type_1, type_2, level, max_hp, attack, defense, speed, special] #  status,
+
+def op_poke(game):
+    id = game.get_memory_value(0xCFE5)
+    # status = game.get_memory_value(0xCFE9)
+    type_1 = game.get_memory_value(0xCFEA)
+    type_2 = game.get_memory_value(0xCFEB)
+    level = game.get_memory_value(0xCFF3)
+    max_hp = read_uint16(game, 0xCFF4)  
+    attack = read_uint16(game, 0xCFF6)
+    defense = read_uint16(game, 0xCFF8)
+    speed = read_uint16(game, 0xCFFA)
+    special = read_uint16(game, 0xCFFC)
+    if mem_val(game, 0xD057) == 0: # is_in_battle if 1
+       return [0,0,0,0,0,0,0,0,0]
+    else:
+        return [id, type_1, type_2, level, max_hp, attack, defense, speed, special] #  status,
+   
+
 def get_hm_count(game):
     hm_ids = [0xC4, 0xC5, 0xC6, 0xC7, 0xC8]
     items = get_items_in_bag(game)
