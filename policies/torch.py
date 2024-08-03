@@ -8,7 +8,7 @@ import pufferlib.emulation
 import pufferlib.pytorch
 import pufferlib.spaces
 import pufferlib.models
-from pokegym.data import poke_dict
+from pokegym.data import poke_and_type_dict
 
 # torch._dynamo.config.capture_scalar_outputs = True
 
@@ -33,7 +33,7 @@ class Policy(nn.Module):
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
         self.extra_obs = env.unwrapped.env.extra_obs # env.unwrapped is GymnasiumPufferEnv
         if self.extra_obs:
-            self.flat_size = self.flat_size + 11 + 18
+            self.flat_size = self.flat_size + 119 
         self.add_boey_obs = env.unwrapped.env.add_boey_obs
         if self.add_boey_obs:
             self.boey_nets()
@@ -49,9 +49,8 @@ class Policy(nn.Module):
             nn.Flatten(),
         )
         self.map_embedding = torch.nn.Embedding(250, 4, dtype=torch.float32) # 6? or 4?
-        self.poke_id = nn.Embedding(177, 8)
-        self.poke_status = nn.Embedding(8, 8)
-        self.poke_type = nn.Embedding(15, 8)
+        self.poke_id = nn.Embedding(190, 6, dtype=torch.float32)
+        self.poke_type = nn.Embedding(14, 3, dtype=torch.float32)
         self.pokemon_embedding = nn.Linear(in_features=38, out_features=16) # input: id, status, type1, type2, stats_level # 8+8+8+8+6 # output: 16?
         
         self.linear= nn.Sequential(
@@ -68,10 +67,8 @@ class Policy(nn.Module):
             screen = screens.permute(0, 3, 1, 2)
         if self.downsample > 1:
             screen = screens[:, :, ::self.downsample, ::self.downsample]
-
+        poke_id_and_type_cat = self.pokemon_observation(observation)
         if self.extra_obs:
-            player_pokemon_obs = self.pokemon_observation(observation['player_poke'])
-            op_pokemon_obs = self.pokemon_observation(observation['op_poke'])
             cat = torch.cat(
             (
                 self.screen(screen.float() / 255.0).squeeze(1),
@@ -83,8 +80,7 @@ class Policy(nn.Module):
                 observation["silphco"].float(),
                 observation["snorlax_12"].float(),
                 observation["snorlax_16"].float(),
-                observation["player_poke"].float(),
-                observation["op_poke"].float(),
+                poke_id_and_type_cat,
             ),
             dim=-1,
         )
@@ -109,29 +105,28 @@ class Policy(nn.Module):
         return actions, value
     
     def pokemon_observation(self, observation):
-        # T()
-        pokemon_id = observation[:, 0].unsqueeze(-1).int() # , dtype=torch.long)
-        # status = observation[:, 1].unsqueeze(-1) # , dtype=torch.long)
-        type_1 = observation[:, 1].unsqueeze(-1).int() # , dtype=torch.long)
-        type_2 = observation[:, 2].unsqueeze(-1).int() # , dtype=torch.long)
-        pokemon_id_embedded = self.poke_id(pokemon_id)
-        # status_embedded = self.poke_status(status)
-        type_1_embedded = self.poke_type(type_1)
-        # type_2_embedded = self.poke_type(type_2)
-        # stats_level_flatten = torch.tensor(observation[3:], dtype=torch.float32)
-        embedded_cat = torch.cat([pokemon_id_embedded, type_1_embedded,], dim=1) # status_embedded, , stats_level_flatten.unsqueeze(0)]  type_2_embedded,
-        # print(embedded_cat)
-
-        return embedded_cat
+        poke_obs_cat_list = []
+        for i in range(6):
+            ppoke = observation[f'ppoke{i+1}'].long()
+            ptype = observation[f'ptype{i+1}'].long()
+            opoke = observation[f'opoke{i+1}'].long()
+            otype = observation[f'otype{i+1}'].long()
+            ppoke_embed = self.poke_id(ppoke).squeeze(1)
+            ptype_embed = self.poke_type(ptype).squeeze(1)
+            opoke_embed = self.poke_id(opoke).squeeze(1)
+            otype_embed = self.poke_type(otype).squeeze(1)
+            poke_obs_cat_list.append(torch.cat([ppoke_embed, ptype_embed, opoke_embed, otype_embed], dim=-1))
+        return torch.cat(poke_obs_cat_list, dim=-1)
 
     def get_embeds(self):
-        ids = [""] + [v['name'] for v in poke_dict.values()]
-        stats_id =  ['None', 'sleep-0', 'sleep-1', 'sleep-2', 'Poison', 'Burn', 'Freeze', 'Paralysis']
-        type1_id = ['Normal', 'Fighting', 'Flying', 'Poison', 'Ground', 'Rock', 'Bug', 'Ghost', 'Fire', 'Water', 'Grass', 'Electric', 'psycic', 'ice', 'dragon']
-        id_shit = ids + type1_id #  + stats_id
-        shit = [torch.cat([self.poke_id.weight, self.poke_type.weight], dim=0)] # , self.poke_status.weight
-        return id_shit, shit
-    
+        poke_ids = [""] + [v['name'] for v in poke_and_type_dict.values()]
+        type_id = ['Normal', 'Fighting', 'Flying', 'Poison', 'Ground', 'Rock', 'Bug', 'Ghost', 'Fire', 'Water', 'Grass', 'Electric', 'psycic', 'ice', 'dragon']
+        id_embeddings = self.poke_id.weight
+        type_embeddings = self.poke_type.weight
+        id_list = poke_ids + type_id
+        shit = torch.cat([id_embeddings, type_embeddings], dim=0)
+        embed_list = shit.tolist()
+        return id_list, embed_list
     
     def boey_obs(self, observation):
         if self.add_boey_obs:

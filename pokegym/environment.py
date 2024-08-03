@@ -123,12 +123,30 @@ class Environment:
                     "snorlax_12": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
                     "snorlax_16": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
                     "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
-                    "player_poke": spaces.Box(low=np.array([0, 0, 0, 1, 0, 0, 0, 0, 0], dtype=np.float32), 
-                                              high=np.array([256, 15, 15, 100, 714, 714, 714, 714, 714], dtype=np.float32), 
-                                              shape=(9,), dtype=np.float32),
-                    "op_poke": spaces.Box(low=np.array([0, 0, 0, 1, 0, 0, 0, 0, 0], dtype=np.float32), 
-                                              high=np.array([256, 15, 15, 100, 714, 714, 714, 714, 714], dtype=np.float32), 
-                                              shape=(9,), dtype=np.float32),
+                    "ppoke1": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "ppoke2": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "ppoke3": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "ppoke4": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "ppoke5": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "ppoke6": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "opoke1": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "opoke2": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "opoke3": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "opoke4": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "opoke5": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "opoke6": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
+                    "ptype1": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "ptype2": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "ptype3": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "ptype4": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "ptype5": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "ptype6": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "otype1": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "otype2": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "otype3": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "otype4": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "otype5": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
+                    "otype6": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
                 })
         else:
             self.observation_space = spaces.Dict(
@@ -137,11 +155,29 @@ class Environment:
                     "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
                 })
 
+
     def _get_obs(self):
         r, c, map_n = ram_map.position(self.game)
         mmap = self.screen_memory[map_n]
         if 0 <= r <= 254 and 0 <= c <= 254:
             mmap[r, c] = 255
+        pokemon_ids = [[0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247], [0xD8A4 , 0xD8D0 , 0xD8FC, 0xD928, 0xD954, 0xD980]]
+        poke1_id, type1 = ram_map.read_pokemon(self.game,pokemon_ids[0][0])
+        poke2_id, type2 = ram_map.read_pokemon(self.game,pokemon_ids[0][1])
+        poke3_id, type3 = ram_map.read_pokemon(self.game,pokemon_ids[0][2])
+        poke4_id, type4 = ram_map.read_pokemon(self.game,pokemon_ids[0][3])
+        poke5_id, type5 = ram_map.read_pokemon(self.game,pokemon_ids[0][4])
+        poke6_id, type6 = ram_map.read_pokemon(self.game,pokemon_ids[0][5])
+        opoke1_id, otype1 = ram_map.read_pokemon(self.game,pokemon_ids[1][0])
+        opoke2_id, otype2 = ram_map.read_pokemon(self.game,pokemon_ids[1][1])
+        opoke3_id, otype3 = ram_map.read_pokemon(self.game,pokemon_ids[1][2])
+        opoke4_id, otype4 = ram_map.read_pokemon(self.game,pokemon_ids[1][3])
+        opoke5_id, otype5 = ram_map.read_pokemon(self.game,pokemon_ids[1][4])
+        opoke6_id, otype6 = ram_map.read_pokemon(self.game,pokemon_ids[1][5])
+        # print(poke1_id, poke2_id, poke3_id, poke4_id, poke5_id, poke6_id)
+        # print(opoke1_id, opoke2_id, opoke3_id, opoke4_id, opoke5_id, opoke6_id)
+        # print(type1, type2, type3, type4, type5, type6)
+        # print(otype1, otype2, otype3, otype4, otype5, otype6)
         if self.extra_obs:
             return {
                 "screen": self.render(),
@@ -154,8 +190,30 @@ class Environment:
                 "snorlax_12": np.array(ram_map.read_bit(self.game, 0xD7D8, 7), dtype=np.uint8),
                 "snorlax_16": np.array(ram_map.read_bit(self.game, 0xD7E0, 1), dtype=np.uint8),
                 "map_n": np.array(map_n, dtype=np.uint8),
-                "player_poke": np.array([ram_map.player_poke(self.game)], dtype=np.float32),
-                "op_poke": np.array([ram_map.op_poke(self.game)], dtype=np.float32),
+                "ppoke1": np.array(poke1_id, dtype=np.uint8),
+                "ppoke2": np.array(poke2_id, dtype=np.uint8),
+                "ppoke3": np.array(poke3_id, dtype=np.uint8),
+                "ppoke4": np.array(poke4_id, dtype=np.uint8),
+                "ppoke5": np.array(poke5_id, dtype=np.uint8),
+                "ppoke6": np.array(poke6_id, dtype=np.uint8),
+                "opoke1": np.array(opoke1_id, dtype=np.uint8),
+                "opoke2": np.array(opoke2_id, dtype=np.uint8),
+                "opoke3": np.array(opoke3_id, dtype=np.uint8),
+                "opoke4": np.array(opoke4_id, dtype=np.uint8),
+                "opoke5": np.array(opoke5_id, dtype=np.uint8),
+                "opoke6": np.array(opoke6_id, dtype=np.uint8),
+                "ptype1": np.array(type1, dtype=np.uint8),
+                "ptype2": np.array(type2, dtype=np.uint8),
+                "ptype3": np.array(type3, dtype=np.uint8),
+                "ptype4": np.array(type4, dtype=np.uint8),
+                "ptype5": np.array(type5, dtype=np.uint8),
+                "ptype6": np.array(type6, dtype=np.uint8),
+                "otype1": np.array(otype1, dtype=np.uint8),
+                "otype2": np.array(otype2, dtype=np.uint8),
+                "otype3": np.array(otype3, dtype=np.uint8),
+                "otype4": np.array(otype4, dtype=np.uint8),
+                "otype5": np.array(otype5, dtype=np.uint8),
+                "otype6": np.array(otype6, dtype=np.uint8),
             }
         else:
             return {

@@ -1,3 +1,4 @@
+import json
 from pdb import set_trace as T
 import numpy as np
 import contextlib
@@ -310,12 +311,16 @@ def train(data):
                     **{f'losses/{k}': v for k, v in data.losses.items()},
                     **{f'performance/{k}': v for k, v in data.profile},
                 })
+                columns, embeddings = data.policy.policy.get_embeds()
+                embedding_data = {"pokemon": [columns], "coords": [embeddings]}
+                with open('pokemon_data.json', 'w') as f:
+                    json.dump(embedding_data, f, indent=4)
 
         if data.epoch % config.checkpoint_interval == 0 or done_training:
             save_checkpoint(data)
-            columns, embeddings = data.policy.policy.get_embeds()
-            data.wandb.log({'embeddings': data.wandb.Table(columns=columns, data=embeddings)})
-            data.msg = f'Checkpoint saved at update {data.epoch}'
+            # columns, embeddings = data.policy.policy.get_embeds()
+            # data.wandb.log({'embeddings': data.wandb.Table(columns=columns, data=embeddings)})
+            # data.msg = f'Checkpoint saved at update {data.epoch}'
 
         if done_training:
             close(data)

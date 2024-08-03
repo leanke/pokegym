@@ -703,6 +703,31 @@ def op_poke(game):
     else:
         return [id, type_1, type_2, level, max_hp, attack, defense, speed, special] #  status,
    
+def read_pokemon(game, start_addr):
+    type_dict = {
+            1: 1,
+            2: 2,
+            3: 3,
+            4: 4,
+            5: 5,
+            7: 6,
+            8: 7,
+            20: 8,
+            21: 9,
+            22: 10,
+            23: 11,
+            24: 12,
+            25: 13,
+            26: 14,
+            }
+    poke_id = game.get_memory_value(start_addr)
+    if poke_id == 0:
+        poke_type_1 = 0
+    else:
+        raw_type1 = game.get_memory_value(start_addr + 0x05)
+        poke_type_1 = type_dict[raw_type1]
+    # poke_type_2 = game.get_memory_value(start_addr + 0x06)
+    return poke_id, poke_type_1 #, poke_type_2
 
 def get_hm_count(game):
     hm_ids = [0xC4, 0xC5, 0xC6, 0xC7, 0xC8]
