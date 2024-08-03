@@ -119,7 +119,7 @@ class Policy(nn.Module):
         return torch.cat(poke_obs_cat_list, dim=-1)
 
     def get_embeds(self):
-        poke_ids = [""] + [v['name'] for v in poke_and_type_dict.values()]
+        poke_ids = [v['name'] for v in poke_and_type_dict.values()]
         type_id = ['Normal', 'Fighting', 'Flying', 'Poison', 'Ground', 'Rock', 'Bug', 'Ghost', 'Fire', 'Water', 'Grass', 'Electric', 'psycic', 'ice', 'dragon']
         id_embeddings = self.poke_id.weight
         type_embeddings = self.poke_type.weight
