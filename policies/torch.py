@@ -33,7 +33,7 @@ class Policy(nn.Module):
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
         self.extra_obs = env.unwrapped.env.extra_obs # env.unwrapped is GymnasiumPufferEnv
         if self.extra_obs:
-            self.flat_size = self.flat_size + 119 
+            self.flat_size = self.flat_size + 155 
         self.add_boey_obs = env.unwrapped.env.add_boey_obs
         if self.add_boey_obs:
             self.boey_nets()
@@ -50,7 +50,7 @@ class Policy(nn.Module):
         )
         self.map_embedding = torch.nn.Embedding(250, 4, dtype=torch.float32) # 6? or 4?
         self.poke_id = nn.Embedding(190, 6, dtype=torch.float32)
-        self.poke_type = nn.Embedding(14, 3, dtype=torch.float32)
+        self.poke_type = nn.Embedding(14, 6, dtype=torch.float32)
         self.pokemon_embedding = nn.Linear(in_features=38, out_features=16) # input: id, status, type1, type2, stats_level # 8+8+8+8+6 # output: 16?
         
         self.linear= nn.Sequential(
