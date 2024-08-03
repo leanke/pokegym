@@ -50,7 +50,7 @@ class Policy(nn.Module):
         )
         self.map_embedding = torch.nn.Embedding(250, 4, dtype=torch.float32) # 6? or 4?
         self.poke_id = nn.Embedding(190, 6, dtype=torch.float32)
-        self.poke_type = nn.Embedding(14, 6, dtype=torch.float32)
+        self.poke_type = nn.Embedding(15, 6, dtype=torch.float32)
         self.pokemon_embedding = nn.Linear(in_features=38, out_features=16) # input: id, status, type1, type2, stats_level # 8+8+8+8+6 # output: 16?
         
         self.linear= nn.Sequential(

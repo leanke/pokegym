@@ -705,6 +705,7 @@ def op_poke(game):
    
 def read_pokemon(game, start_addr):
     type_dict = {
+            0: 0,
             1: 1,
             2: 2,
             3: 3,
