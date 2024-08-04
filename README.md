@@ -2,7 +2,7 @@
 
 Pokemon Red Gymnasium environment for reinforcement learning
 
-##Installation
+## Installation
 
 1. Clone the repo to your local machine and install it.
 2. Fork the repo and clone your fork to your local machine.
@@ -27,4 +27,4 @@ pip install -e .
 
 /config: Configuration files for setting parameters and environment settings.
 
-Powered by Pufferlib
+## Powered by Pufferlib
