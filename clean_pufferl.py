@@ -67,9 +67,10 @@ def create(config, vecenv, policy, async_config, optimizer=None, wandb=None):
     
     env_send_queues = async_config['send_queues']
     env_recv_queues = async_config['recv_queues']
-    states: dict = field(default_factory=lambda: defaultdict(partial(deque, maxlen=1)))
-    event_tracker: dict = field(default_factory=lambda: {})
+    states: dict = defaultdict(partial(deque, maxlen=1))
+    event_tracker: dict = {}
     max_event_count: int = 0
+    misc_conuter = 0
 
     return pufferlib.namespace(
         config=config,
@@ -91,6 +92,7 @@ def create(config, vecenv, policy, async_config, optimizer=None, wandb=None):
         states=states,
         event_tracker=event_tracker,
         max_event_count=max_event_count,
+        misc_conuter=misc_conuter
     )
 
 @pufferlib.utils.profile
@@ -144,32 +146,61 @@ def evaluate(data):
                         _, key = k.split("/")
                         key: tuple[str] = ast.literal_eval(key)
                         data.states[key].append(v)
-                    # elif "required_count" == k:
-                    #     for count, eid in zip(
-                    #         infos["required_count"], infos["env_id"]
-                    #     ):
-                    #         data.event_tracker[eid] = count
-                    #     infos[k].append(v)
+                    elif "required_count" == k:
+                        for count, eid in zip(infos["required_count"], infos["env_id"]):
+                            data.event_tracker[eid] = count
+                        infos[k].append(v)
                     else:
                         infos[k].append(v)
-                    infos[k].append(v)
 
         with profile.env:
             data.vecenv.send(actions)
 
     with profile.eval_misc:
-        if (hasattr(data.config, "swarm_keep_pct") and "events" in infos and "state" in infos):
-            largest = [x[0] for x in heapq.nlargest(math.ceil(data.config.num_envs * data.config.swarm_keep_pct), enumerate(infos["events"]), key=lambda x: x[1],)]
-            reset_states = [random.choice(largest) if i not in largest else i for i in range(data.config.num_envs)]
-            print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
-            print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
-            print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
-            print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
-            print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
-            for i in range(data.config.num_envs):
-                data.env_recv_queues[i].put(infos["state"][reset_states[i]])
-            for i in range(data.config.num_envs):
-                data.env_send_queues[i].get()
+        if (hasattr(data.config, "swarm") and data.config.swarm and "required_count" in infos and data.states):
+            max_event_count = 0
+            new_state_key = ""
+            max_state = None
+            for key in data.states.keys():
+                candidate_max_state: deque = data.states[key]
+                if (
+                    len(key) > max_event_count
+                    and len(candidate_max_state) == candidate_max_state.maxlen
+                ):
+                    max_event_count = len(key)
+                    new_state_key = key
+                    max_state = candidate_max_state
+            if max_event_count > data.max_event_count and max_state:
+                data.max_event_count = max_event_count
+                print(f"\tNew events ({len(new_state_key)}): {new_state_key}")
+                for key in data.event_tracker.keys():
+                    new_state = random.choice(data.states[new_state_key])
+                    data.env_recv_queues[key].put(new_state)
+                for key in data.event_tracker.keys():
+                    data.env_send_queues[key].get()
+                print(f"State migration {str(hash(new_state_key))} complete")
+
+        # if (hasattr(data.config, "swarm_keep_pct") and "swarm_metric2" in infos and "state" in infos):
+        #     data.misc_conuter += 1
+        #     print(f"Swarm Counter: {data.misc_conuter}")
+        #     if data.misc_conuter % 10 == 0:
+        #         largest = [x[0] for x in heapq.nlargest(math.ceil(data.config.num_envs * data.config.swarm_keep_pct), enumerate(infos["swarm_metric2"]), key=lambda x: x[1],)]
+        #         reset_states = [random.choice(largest) if i not in largest else i for i in range(data.config.num_envs)]
+        #         print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
+        #         print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
+        #         print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
+        #         print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
+        #         print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
+        #         for i in range(data.config.num_envs):
+        #             try:
+        #                 data.env_recv_queues[i].put(infos["state"][reset_states[i]])
+        #             except:
+        #                 continue
+        #         for i in range(data.config.num_envs):
+        #             try:
+        #                 data.env_send_queues[i].get()
+        #             except:
+        #                 continue
 
         data.stats = {}
 

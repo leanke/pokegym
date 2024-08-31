@@ -21,6 +21,9 @@ from pokegym.pyboy_binding import (
     run_action_on_emulator,
 )
 from pokegym import data, ram_map
+from .classes.gym_manager import Gym
+from .classes.story_manager import Story
+from .classes.event_manager import Event
 
 
 STATE_PATH = __file__.rstrip("environment.py") + "States/"
@@ -79,12 +82,13 @@ class Environment:
         self.reset_count = 0
         self.full_reset_count = 0
         self.swarm_count = 0
+        # self.gym = Gym(self.game)
+        # self.story = Story(self.game)
+        # self.event = Event(self.game)
         self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self.poketower = [142, 143, 144, 145, 146, 147, 148]
         self.pokehideout = [199, 200, 201, 202, 203] # , 135
         self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
-
-
 
     def get_fixed_window(self, arr, y, x, window_size):
         height, width, _ = arr.shape
@@ -202,6 +206,7 @@ class Environment:
         self.cut_counter = 0
         self.last_hp = 1.0
         self.last_party_size = 1
+        self.required_events = self.get_req_events()
         state = io.BytesIO()
         self.game.save_state(state)
         state.seek(0)
@@ -238,6 +243,18 @@ class Environment:
             self.last_reward = nxt_reward
 
         info = {}
+        required_events = self.get_req_events()
+        new_required_events = required_events - self.required_events
+        if new_required_events:
+            state = io.BytesIO()
+            self.game.save_state(state)
+            state.seek(0)
+            info["state"] = {tuple(sorted(list(required_events))): state.read()}
+            info["required_count"] = len(required_events)
+            info["env_id"] = self.env_id
+            info = info | self.infos_dict()
+        self.required_events = required_events
+
         done = self.time >= self.max_episode_steps
         
         if done:
@@ -253,6 +270,31 @@ class Environment:
         return self._get_obs(), reward, done, done, info
     
 #################################################################################################################################################
+
+    def save_to_database(self):
+        db_dir = self.db_path
+        conn = sqlite3.connect(f'{db_dir}/{db_name}.db')
+        cursor = conn.cursor()
+
+        cursor.execute("CREATE TABLE IF NOT EXISTS environment (env_id TEXT PRIMARY KEY,hm_count INTEGER,cut INTEGER)")
+        cursor.execute("INSERT OR REPLACE INTO environment VALUES (?, ?, ?)", (str(self.env_id), self.hm_count, self.cut))
+
+        conn.commit()
+        conn.close()
+
+    def read_database(self):
+        db_dir = self.db_path
+        conn = sqlite3.connect(f'{db_dir}/{db_name}.db')
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT COUNT(*) FROM environment WHERE cut = 1")
+        count_cut_1 = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM environment")
+        total_instances = cursor.fetchone()[0]
+        percentage = (count_cut_1 / total_instances) * 100
+        # print(f"Percentage of instances with hm_count = 1: {percentage:.2f}%")
+        conn.close()
+        return percentage
 
     def hm_rew(self):
         # HM reward
@@ -332,6 +374,9 @@ class Environment:
         self.game.save_state(state)
         return state
     
+    def get_req_events(self):
+        return({event for event in data.required_events if ram_map.read_bit(self.game, event[0], event[1])})
+    
     def update_state(self, state: bytes):
         self.reset(seed=random.randint(0, 10), options={"state": state})
 
@@ -404,6 +449,36 @@ class Environment:
             exploration_reward = (0.03 * len(self.seen_coords))
         else:
             exploration_reward = (0.02 * len(self.seen_coords))
+
+        # # Gym
+        # self.gym.update()
+        # high_gym_maps, low_gym_maps = self.gym.maps()
+        # gym_rew = self.gym.rew_sum
+        # # print(f'Low Gym: {low_gym_maps}\n High Gym: {high_gym_maps}')
+        # # print(f'Gym Rew: {gym_rew}')
+
+        # # Event
+        # self.event.update()
+        # event_rew = self.event.rew_sum
+        # # print(f'Events Rew: {event_rew}')
+        
+        # # Story
+        # self.story.update()
+        # high_story_maps, low_story_maps = self.story.maps()
+        # # print(f'Low Story: {low_story_maps}\n High Story: {high_story_maps}')
+
+        # # New Exploration
+        # self.expl_high_map = high_gym_maps + high_story_maps
+        # self.expl_low_map = low_gym_maps + low_story_maps
+        # r, c, map_n = ram_map.position(self.game) # this is [y, x, z]
+        # self.seen_coords.add((r, c, map_n))
+        # if map_n in self.expl_high_map:
+        #     self.exploration_reward = (0.03 * len(self.seen_coords))
+        # elif map_n in self.expl_low_map:
+        #     self.exploration_reward = (0.01 * len(self.seen_coords))
+        # else:
+        #     self.exploration_reward = (0.02 * len(self.seen_coords))
+
         return exploration_reward
 
     def cut_rew(self):
@@ -518,6 +593,9 @@ class Environment:
         )
     
     def infos_dict(self):
+        state = io.BytesIO()
+        state.seek(0)
+        self.game.save_state(state)
         return {
                 "Data": {
                     "leader1": int(ram_map.read_bit(self.game, 0xD755, 7)),
@@ -587,8 +665,9 @@ class Environment:
                     "deaths": self.death_count,
                     "local_expl_rew": len(self.seen_coords)/self.max_episode_steps,
                 },
-                "events": self.event_reward,
-                "state": self.swarming_state(),
+                # "state": {tuple(sorted(list(self.required_events))): state.read()},
+                # "required_count": len(self.required_events),
+                # "env_id": self.env_id,
             }
     
     def level_rew(self):

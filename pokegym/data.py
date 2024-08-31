@@ -55,6 +55,42 @@ events_list = [
     (0xD751, 5), (0xD751, 6), (0xD751, 7), (0xD752, 0), (0xD752, 1), (0xD74B, 3), (0xD7EB, 0), (0xD7EB, 1), 
     (0xD7EB, 5), (0xD7EB, 6), (0xD75A, 0), (0xD764, 6), (0xD764, 7), (0xD7EB, 7), (0xD82F, 0)
     ]
+required_events = [
+    # Test
+    (0xD7F3, 2), # beat_viridian_forest_trainer_0
+    (0xD7F3, 3), # beat_viridian_forest_trainer_1
+    (0xD7F3, 4), # beat_viridian_forest_trainer_2
+    # Test
+    (0xD838, 7), # Beat_Silph_Co_Giovanni
+    (0xD803, 1), # Rubbed_Captains_Back
+    (0xD771, 1), # got_bike_voucher
+    (0xD769, 7), # rescued_mr_fuji_2
+    (0xD7D8, 7), # route12_snorlax_beat
+    (0xD7E0, 1), # route16_snorlax_beat
+    (0xD803, 0), # hm01
+    (0xD7E0, 6), # hm02
+    (0xD857, 0), # hm03
+    (0xD78E, 0), # hm04
+    (0xD7C2, 0), # hm05
+    (0xD7F2, 7), # left_bills_house_after_helping
+    (0xD76C, 0), # got_poke_flute
+    (0xD75F, 0), # got_bicycle
+    (0xD796, 0), # mansion_switch_on
+    (0xD78E, 1), # gave_gold_teeth
+    (0xD7B1, 6), # got_hitmonlee
+    (0xD7B1, 7), # got_hitmonchan
+    (0xD81B, 7), # beat_rocket_hideout_giovanni
+    (0xD77E, 1), # found_rocket_hideout
+    (0xD768, 7), # beat_ghost_marowak
+    (0xD755, 7), # gym leader one
+    (0xD75E, 7), # gym leader two
+    (0xD773, 7), # gym leader three
+    (0xD792, 1), # gym leader four
+    (0xD792, 1), # gym leader five
+    (0xD7B3, 1), # gym leader six
+    (0xD79A, 1), # gym leader seven
+    (0xD751, 1), # gym leader eight
+    ]
 
 pokemon_data = [
     {'hex': '1', 'decimal': '1', 'name': 'Rhydon'},
