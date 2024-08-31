@@ -142,7 +142,7 @@ def evaluate(data):
 
             for i in info:
                 for k, v in pufferlib.utils.unroll_nested_dict(i):
-                    if "state/" in k:
+                    if "state" in k:
                         _, key = k.split("/")
                         key: tuple[str] = ast.literal_eval(key)
                         data.states[key].append(v)
@@ -157,22 +157,19 @@ def evaluate(data):
             data.vecenv.send(actions)
 
     with profile.eval_misc:
-        if (hasattr(data.config, "swarm") and data.config.swarm and "required_count" in infos and data.states):
+        if (hasattr(data.config, "swarm") and data.config.swarm and "required_count" in infos):
             max_event_count = 0
             new_state_key = ""
             max_state = None
             for key in data.states.keys():
                 candidate_max_state: deque = data.states[key]
-                if (
-                    len(key) > max_event_count
-                    and len(candidate_max_state) == candidate_max_state.maxlen
-                ):
+                if (len(key) > max_event_count and len(candidate_max_state) == candidate_max_state.maxlen):
                     max_event_count = len(key)
                     new_state_key = key
                     max_state = candidate_max_state
             if max_event_count > data.max_event_count and max_state:
                 data.max_event_count = max_event_count
-                print(f"\tNew events ({len(new_state_key)}): {new_state_key}")
+                # print(f"\tNew events ({len(new_state_key)}): {new_state_key}")
                 for key in data.event_tracker.keys():
                     new_state = random.choice(data.states[new_state_key])
                     data.env_recv_queues[key].put(new_state)

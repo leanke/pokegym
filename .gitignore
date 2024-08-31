@@ -2,7 +2,10 @@
 *.gb
 wandb/
 experiments/
-glitch
+glitch/
+db/
+videos/
+*.ipynb
 
 
 # Byte-compiled / optimized / DLL files

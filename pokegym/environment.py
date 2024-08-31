@@ -1,6 +1,7 @@
 import multiprocessing
 from pathlib import Path
 from pdb import set_trace as T
+import sqlite3
 from typing import Any, Optional
 import uuid
 from gymnasium import Env, spaces
@@ -31,6 +32,7 @@ GLITCH = __file__.rstrip("environment.py") + "glitch/"
 CUT_GRASS_SEQ = deque([(0x52, 255, 1, 0, 1, 1), (0x52, 255, 1, 0, 1, 1), (0x52, 1, 1, 0, 1, 1)])
 CUT_FAIL_SEQ = deque([(-1, 255, 0, 0, 4, 1), (-1, 255, 0, 0, 1, 1), (-1, 255, 0, 0, 1, 1)])
 CUT_SEQ = [((0x3D, 1, 1, 0, 4, 1), (0x3D, 1, 1, 0, 1, 1)), ((0x50, 1, 1, 0, 4, 1), (0x50, 1, 1, 0, 1, 1)),]
+db_name = Path(f'{str(uuid.uuid4())[:4]}')
 
 class Environment:
     counter_lock = multiprocessing.Lock()
@@ -43,7 +45,7 @@ class Environment:
         if rom_path is None or not os.path.exists(rom_path):
             raise FileNotFoundError("No ROM file found in the specified directory.")
         if state_path is None:
-            state_path = STATE_PATH + "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
+            state_path = STATE_PATH + "bulba/Pewter.state" # "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
         self.game, self.screen = make_env(rom_path, headless, quiet, save_video=True, **kwargs)
         self.initial_states = [open_state_file(state_path)]
         self.headless = headless
@@ -62,6 +64,8 @@ class Environment:
         self.reset_mem = env_config['reset_mem']
         self.countdown = env_config['countdown']
         self.save_video = env_config['save_video']
+        self.db_path = Path(f"{env_config['db_path']}")
+        
 
         R, C = self.screen.raw_screen_buffer_dims()
         self.obs_size = (R // 2, C // 2, 3) # 72, 80, 3
@@ -179,6 +183,7 @@ class Environment:
             self.swarm_count += 1
 
         self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
+        info = {}
         self.time = 0
         self.cut_reward = 0
         self.event_reward = 0   
@@ -207,11 +212,13 @@ class Environment:
         self.last_hp = 1.0
         self.last_party_size = 1
         self.required_events = self.get_req_events()
-        state = io.BytesIO()
-        self.game.save_state(state)
-        state.seek(0)
+        info |= {
+                "state": { tuple(sorted(list(self.required_events))): self.swarming_state()}, # .read()
+                "required_count": len(self.required_events),
+                "env_id": self.env_id,
+                }
 
-        return self._get_obs(), {"state": state.read()}
+        return self._get_obs(), info
 
     def step(self, action, fast_video=True):
         run_action_on_emulator(self.game, self.screen, ACTIONS[action], self.headless, fast_video=fast_video,)
@@ -222,8 +229,8 @@ class Environment:
 
         if self.save_video:
             self.add_video_frame()
-        
-        
+
+
         # Misc
         self.update_pokedex()
         self.update_moves_obtained()
@@ -243,17 +250,6 @@ class Environment:
             self.last_reward = nxt_reward
 
         info = {}
-        required_events = self.get_req_events()
-        new_required_events = required_events - self.required_events
-        if new_required_events:
-            state = io.BytesIO()
-            self.game.save_state(state)
-            state.seek(0)
-            info["state"] = {tuple(sorted(list(required_events))): state.read()}
-            info["required_count"] = len(required_events)
-            info["env_id"] = self.env_id
-            info = info | self.infos_dict()
-        self.required_events = required_events
 
         done = self.time >= self.max_episode_steps
         
@@ -370,12 +366,18 @@ class Environment:
 
     def swarming_state(self):
         state = io.BytesIO()
-        state.seek(0)
         self.game.save_state(state)
-        return state
+        state.seek(0)
+        return state.read()
     
     def get_req_events(self):
-        return({event for event in data.required_events if ram_map.read_bit(self.game, event[0], event[1])})
+        events_return = []
+        for event in data.required_events:
+            events_done = ram_map.read_bit(self.game, event[0], event[1])
+            if events_done:
+                events_return.append(1)
+            # events_return.append(events_done)
+        return(events_return)
     
     def update_state(self, state: bytes):
         self.reset(seed=random.randint(0, 10), options={"state": state})
@@ -593,10 +595,10 @@ class Environment:
         )
     
     def infos_dict(self):
-        state = io.BytesIO()
-        state.seek(0)
-        self.game.save_state(state)
-        return {
+        required_events = self.get_req_events()
+        new_required_events = sum(required_events) - sum(self.required_events)
+        if new_required_events:
+            info = {
                 "Data": {
                     "leader1": int(ram_map.read_bit(self.game, 0xD755, 7)),
                     "leader2": int(ram_map.read_bit(self.game, 0xD75E, 7)),
@@ -665,10 +667,83 @@ class Environment:
                     "deaths": self.death_count,
                     "local_expl_rew": len(self.seen_coords)/self.max_episode_steps,
                 },
-                # "state": {tuple(sorted(list(self.required_events))): state.read()},
-                # "required_count": len(self.required_events),
-                # "env_id": self.env_id,
+                "state": { tuple(sorted(list(required_events))): self.swarming_state()},
+                "required_count": len(required_events),
+                "env_id": self.env_id,
             }
+        else:
+            info = {
+                "Data": {
+                    "leader1": int(ram_map.read_bit(self.game, 0xD755, 7)),
+                    "leader2": int(ram_map.read_bit(self.game, 0xD75E, 7)),
+                    "leader3": int(ram_map.read_bit(self.game, 0xD773, 7)),
+                    "leader4": int(ram_map.read_bit(self.game, 0xD792, 1)),
+                    "leader5": int(ram_map.read_bit(self.game, 0xD792, 1)),
+                    "leader6": int(ram_map.read_bit(self.game, 0xD7B3, 1)),
+                    "leader7": int(ram_map.read_bit(self.game, 0xD79A, 1)),
+                    "leader8": int(ram_map.read_bit(self.game, 0xD751, 1)),
+                    "got_bike": int(ram_map.read_bit(self.game, 0xD75F, 0)),
+                    "beat_hideout": int(ram_map.read_bit(self.game, 0xD81B, 7)),
+                    "saved_fuji": int(ram_map.read_bit(self.game, 0xD7E0, 7)),
+                    "got_flute": int(ram_map.read_bit(self.game, 0xD76C, 0)),
+                    "beat_silphco": int(ram_map.read_bit(self.game, 0xD838, 7)),
+                    "beat_snorlax_12": int(ram_map.read_bit(self.game, 0xD7D8, 7)),
+                    "beat_snorlax_16": int(ram_map.read_bit(self.game, 0xD7E0, 1)),   
+                },
+                "Events": {
+                    "silph": ram_map.silph_co(self.game),
+                    "rock_tunnel": ram_map.rock_tunnel(self.game),
+                    "ssanne": ram_map.ssanne(self.game),
+                    "mtmoon": ram_map.mtmoon(self.game),
+                    "routes": ram_map.routes(self.game),
+                    "misc": ram_map.misc(self.game),
+                    "snorlax": ram_map.snorlax(self.game),
+                    "hmtm": ram_map.hmtm(self.game),
+                    "bill": ram_map.bill(self.game),
+                    "oak": ram_map.oak(self.game),
+                    "towns": ram_map.towns(self.game),
+                    "lab": ram_map.lab(self.game),
+                    "mansion": ram_map.mansion(self.game),
+                    "safari": ram_map.safari(self.game),
+                    "dojo": ram_map.dojo(self.game),
+                    "hideout": ram_map.hideout(self.game),
+                    "tower": ram_map.poke_tower(self.game),
+                    "gym1": ram_map.gym1(self.game),
+                    "gym2": ram_map.gym2(self.game),
+                    "gym3": ram_map.gym3(self.game),
+                    "gym4": ram_map.gym4(self.game),
+                    "gym5": ram_map.gym5(self.game),
+                    "gym6": ram_map.gym6(self.game),
+                    "gym7": ram_map.gym7(self.game),
+                    "gym8": ram_map.gym8(self.game),
+                    "rival": ram_map.rival(self.game),
+                },
+                "Rewards": {
+                    "Reward_Sum": self.reward_sum(),
+                    "Exploration": self.expl_rew(),
+                    "Level": self.level_rew(),
+                    "Healing": self.heal_rew(),
+                    "Event_Sum": self.event_reward,
+                    "Cut": self.cut_reward,    
+                    "Seen_Poke": self.seen_pokemon_reward,
+                    "Caught_Poke": self.caught_pokemon_reward,
+                    "Moves_Obtained": self.moves_obtained_reward,
+                    "Used_Cut": self.used_cut_rew,
+                    "Cut_Coords": self.cut_coords_reward,
+                    "Cut_Tiles": self.cut_tiles_reward,
+                    "Start_Menu": self.seen_start_menu * 0.01,
+                    "Poke_Menu": self.seen_pokemon_menu * 0.1,
+                    "Stats_Menu": self.seen_stats_menu * 0.1,
+                    "Bag_Menu": self.seen_bag_menu * 0.1,
+                },
+                "Misc": {
+                    "cut": self.cut,
+                    "deaths": self.death_count,
+                    "local_expl_rew": len(self.seen_coords)/self.max_episode_steps,
+                },
+            }
+        self.required_events = required_events
+        return info
     
     def level_rew(self):
         party_size, party_levels = ram_map.party(self.game)

@@ -55,16 +55,11 @@ events_list = [
     (0xD751, 5), (0xD751, 6), (0xD751, 7), (0xD752, 0), (0xD752, 1), (0xD74B, 3), (0xD7EB, 0), (0xD7EB, 1), 
     (0xD7EB, 5), (0xD7EB, 6), (0xD75A, 0), (0xD764, 6), (0xD764, 7), (0xD7EB, 7), (0xD82F, 0)
     ]
+
 required_events = [
-    # Test
-    (0xD7F3, 2), # beat_viridian_forest_trainer_0
-    (0xD7F3, 3), # beat_viridian_forest_trainer_1
-    (0xD7F3, 4), # beat_viridian_forest_trainer_2
-    # Test
     (0xD838, 7), # Beat_Silph_Co_Giovanni
     (0xD803, 1), # Rubbed_Captains_Back
     (0xD771, 1), # got_bike_voucher
-    (0xD769, 7), # rescued_mr_fuji_2
     (0xD7D8, 7), # route12_snorlax_beat
     (0xD7E0, 1), # route16_snorlax_beat
     (0xD803, 0), # hm01
