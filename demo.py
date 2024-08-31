@@ -1,5 +1,6 @@
 import configparser
 import argparse
+from multiprocessing import Queue
 import shutil
 import glob
 from typing import Callable, List, Dict, Type, Any
@@ -17,6 +18,11 @@ from rich_argparse import RichHelpFormatter
 from rich.console import Console
 from rich.traceback import install
 
+from pokegym import Environment
+from wrappers.render_wrapper import RenderWrapper
+from wrappers.obs_wrapper import ObsWrapper
+from wrappers.stream_wrapper import StreamWrapper
+from wrappers.async_io import AsyncWrapper
 
 import pufferlib.emulation
 import pufferlib.postprocess
@@ -55,7 +61,7 @@ def init_wandb(args, name, id=None, resume=True):
     )
     return wandb
 
-def train(args, make_env, policy_cls, rnn_cls, wandb):
+def train(args, make_env, policy_cls, rnn_cls, async_config, wandb,):
     if args['vec'] == 'serial':
         vec = pufferlib.vector.Serial
     elif args['vec'] == 'multiprocessing':
@@ -77,7 +83,7 @@ def train(args, make_env, policy_cls, rnn_cls, wandb):
     policy = make_policy(vecenv.driver_env, policy_cls, rnn_cls, args)
     train_config = pufferlib.namespace(**args['train'], env=env_name,
         exp_id=args['exp_id'] or env_name + '-' + str(uuid.uuid4())[:8])
-    data = clean_pufferl.create(train_config, vecenv, policy, wandb=wandb)
+    data = clean_pufferl.create(train_config, vecenv, policy, async_config, wandb=wandb)
     while data.global_step < train_config.total_timesteps:
         clean_pufferl.evaluate(data)
         clean_pufferl.train(data)
@@ -90,13 +96,11 @@ def train(args, make_env, policy_cls, rnn_cls, wandb):
     clean_pufferl.close(data)
     return stats, uptime
 
-def env_creator(wrappers: List[Dict[str, Any]], env_config: List[Dict[str, Any]]) -> Callable[[], pufferlib.emulation.GymnasiumPufferEnv]:
+def env_creator(train_config: List[Dict[str, Any]], wrappers: List[Dict[str, Any]], env_config: List[Dict[str, Any]], async_config) -> Callable[[], pufferlib.emulation.GymnasiumPufferEnv]:
     def make() -> pufferlib.emulation.GymnasiumPufferEnv:
-        from pokegym import Environment
-        from wrappers.render_wrapper import RenderWrapper
-        from wrappers.obs_wrapper import ObsWrapper
-        from wrappers.stream_wrapper import StreamWrapper
-        env = Environment(env_config)  
+        env = Environment(env_config)
+        if wrappers['swarming_wrapper']:
+            env = AsyncWrapper(env, async_config['send_queues'], async_config['recv_queues'])
         if wrappers['obs_wrapper']:
             env = ObsWrapper(env)
         if wrappers['stream_wrapper']:
@@ -165,8 +169,12 @@ if __name__ == '__main__':
             prev[subkey] = value
 
     import importlib
+    num_queues = (args['train']['num_envs']+1)
+    env_send_queues = [Queue() for _ in range(args['train']['num_envs'] + 1)] #  + args['train']['num_workers']
+    env_recv_queues = [Queue() for _ in range(args['train']['num_envs'] + 1)]
+    async_config = {"send_queues": env_send_queues,"recv_queues": env_recv_queues}
     env_module = importlib.import_module(f'policies')
-    make_env = env_creator(args['wrappers'], args['env_config'])
+    make_env = env_creator(args['train'], args['wrappers'], args['env_config'], async_config)
     policy_cls = getattr(env_module, args['base']['policy_name'])
     
     rnn_name = args['base']['rnn_name']
@@ -192,7 +200,7 @@ if __name__ == '__main__':
         wandb = None
         if args['track']:
             wandb = init_wandb(args, env_name, id=args['exp_id'])
-        train(args, make_env, policy_cls, rnn_cls, wandb=wandb)
+        train(args, make_env, policy_cls, rnn_cls, async_config, wandb=wandb,)
     elif args['mode'] in ('eval', 'evaluate'):
         clean_pufferl.rollout(
             make_env,

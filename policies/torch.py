@@ -8,7 +8,7 @@ import pufferlib.emulation
 import pufferlib.pytorch
 import pufferlib.spaces
 import pufferlib.models
-from pokegym.data import poke_and_type_dict
+from pokegym.data import poke_and_type_dict, map_dict
 
 # torch._dynamo.config.capture_scalar_outputs = True
 
@@ -33,7 +33,7 @@ class Policy(nn.Module):
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
         self.extra_obs = env.unwrapped.env.extra_obs # env.unwrapped is GymnasiumPufferEnv
         if self.extra_obs:
-            self.flat_size = self.flat_size + 155 
+            self.flat_size = self.flat_size + 11 #+ 144
         self.add_boey_obs = env.unwrapped.env.add_boey_obs
         if self.add_boey_obs:
             self.boey_nets()
@@ -48,7 +48,7 @@ class Policy(nn.Module):
             nn.ReLU(),
             nn.Flatten(),
         )
-        self.map_embedding = torch.nn.Embedding(250, 4, dtype=torch.float32) # 6? or 4?
+        self.map_embedding = torch.nn.Embedding(248, 4, dtype=torch.float32)
         self.poke_id = nn.Embedding(190, 6, dtype=torch.float32)
         self.poke_type = nn.Embedding(15, 6, dtype=torch.float32)
         self.pokemon_embedding = nn.Linear(in_features=38, out_features=16) # input: id, status, type1, type2, stats_level # 8+8+8+8+6 # output: 16?
@@ -67,7 +67,7 @@ class Policy(nn.Module):
             screen = screens.permute(0, 3, 1, 2)
         if self.downsample > 1:
             screen = screens[:, :, ::self.downsample, ::self.downsample]
-        poke_id_and_type_cat = self.pokemon_observation(observation)
+        # poke_id_and_type_cat = self.pokemon_observation(observation)
         if self.extra_obs:
             cat = torch.cat(
             (
@@ -80,7 +80,7 @@ class Policy(nn.Module):
                 observation["silphco"].float(),
                 observation["snorlax_12"].float(),
                 observation["snorlax_16"].float(),
-                poke_id_and_type_cat,
+                # poke_id_and_type_cat,
             ),
             dim=-1,
         )
@@ -121,10 +121,13 @@ class Policy(nn.Module):
     def get_embeds(self):
         poke_ids = [v['name'] for v in poke_and_type_dict.values()]
         type_id = ['Normal', 'Fighting', 'Flying', 'Poison', 'Ground', 'Rock', 'Bug', 'Ghost', 'Fire', 'Water', 'Grass', 'Electric', 'psycic', 'ice', 'dragon']
+        map_ids = [v for v in map_dict.values()]
         id_embeddings = self.poke_id.weight
         type_embeddings = self.poke_type.weight
-        id_list = poke_ids + type_id
-        shit = torch.cat([id_embeddings, type_embeddings], dim=0)
+        map_embeddings = self.map_embedding.weight
+
+        id_list = map_ids # poke_ids + type_id
+        shit = map_embeddings # torch.cat([id_embeddings, type_embeddings], dim=0)
         embed_list = shit.tolist()
         return id_list, embed_list
     
@@ -165,6 +168,51 @@ class Policy(nn.Module):
         return all_features
     
     def boey_nets(self):
+        self.poke_move_ids_embedding = nn.Embedding(167, 8, padding_idx=0)
+        self.move_fc_relu = nn.Sequential(
+            nn.Linear(10, 8),
+            nn.ReLU(),
+            nn.Linear(8, 8),
+            nn.ReLU(),
+        )
+        self.move_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
+        self.poke_type_ids_embedding = nn.Embedding(17, 8, padding_idx=0)
+        self.poke_ids_embedding = nn.Embedding(192, 16, padding_idx=0)
+        self.poke_fc_relu = nn.Sequential(
+            nn.Linear(63, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+            nn.ReLU(),
+        )
+        self.poke_party_head = nn.Sequential(
+            nn.Linear(32, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+        )
+        self.poke_party_head_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 32))
+        self.poke_opp_head = nn.Sequential(
+            nn.Linear(32, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+        )
+        self.poke_opp_head_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 32))
+        self.item_ids_embedding = nn.Embedding(256, 16, padding_idx=0)  # (20, 16)
+        self.item_ids_fc_relu = nn.Sequential(
+            nn.Linear(17, 16),
+            nn.ReLU(),
+            nn.Linear(16, 16),
+            nn.ReLU(),
+        )
+        self.item_ids_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
+        self.event_ids_embedding = nn.Embedding(2570, 16, padding_idx=0)  # (20, )
+        self.event_ids_fc_relu = nn.Sequential(
+            nn.Linear(17, 16),
+            nn.ReLU(),
+            nn.Linear(16, 16),
+            nn.ReLU(),
+        )
+        self.event_ids_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
+        self._features_dim = 406
         self.poke_move_ids_embedding = nn.Embedding(167, 8, padding_idx=0)
         self.move_fc_relu = nn.Sequential(
             nn.Linear(10, 8),

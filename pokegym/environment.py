@@ -1,5 +1,7 @@
+import multiprocessing
 from pathlib import Path
 from pdb import set_trace as T
+from typing import Any, Optional
 import uuid
 from gymnasium import Env, spaces
 import numpy as np
@@ -28,8 +30,12 @@ CUT_FAIL_SEQ = deque([(-1, 255, 0, 0, 4, 1), (-1, 255, 0, 0, 1, 1), (-1, 255, 0,
 CUT_SEQ = [((0x3D, 1, 1, 0, 4, 1), (0x3D, 1, 1, 0, 1, 1)), ((0x50, 1, 1, 0, 4, 1), (0x50, 1, 1, 0, 1, 1)),]
 
 class Environment:
+    counter_lock = multiprocessing.Lock()
+    counter = multiprocessing.Value('i', 0)
     def __init__(self, env_config, rom_path="pokemon_red.gb", state_path=None, headless=True, quiet=False, verbose=False, **kwargs,):
-
+        with Environment.counter_lock:
+            env_id = Environment.counter.value
+            Environment.counter.value += 1
         # Initialize emulator
         if rom_path is None or not os.path.exists(rom_path):
             raise FileNotFoundError("No ROM file found in the specified directory.")
@@ -61,7 +67,7 @@ class Environment:
         self.obs_space()
         self.action_space = spaces.Discrete(len(ACTIONS))
         load_pyboy_state(self.game, self.load_last_state())
-        self.env_id = Path(f'{str(uuid.uuid4())[:4]}')
+        self.env_id = env_id # Path(f'{str(uuid.uuid4())[:4]}')
         self.s_path = Path(f"videos/{self.env_id}")
         
         # Misc
@@ -72,16 +78,13 @@ class Environment:
         self.death_count = 0
         self.reset_count = 0
         self.full_reset_count = 0
+        self.swarm_count = 0
         self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self.poketower = [142, 143, 144, 145, 146, 147, 148]
         self.pokehideout = [199, 200, 201, 202, 203] # , 135
         self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
-        # Test
-        # self.seen_pokemon = np.zeros(152, dtype=np.uint8)
-        # self.caught_pokemon = np.zeros(152, dtype=np.uint8)
-        # self.moves_obtained = {}
-        self.last_hp = 1.0
-        self.last_party_size = 1
+
+
 
     def get_fixed_window(self, arr, y, x, window_size):
         height, width, _ = arr.shape
@@ -123,30 +126,6 @@ class Environment:
                     "snorlax_12": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
                     "snorlax_16": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
                     "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
-                    "ppoke1": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "ppoke2": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "ppoke3": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "ppoke4": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "ppoke5": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "ppoke6": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "opoke1": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "opoke2": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "opoke3": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "opoke4": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "opoke5": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "opoke6": spaces.Box(low=1, high=190, shape=(1,), dtype=np.uint8),
-                    "ptype1": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "ptype2": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "ptype3": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "ptype4": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "ptype5": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "ptype6": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "otype1": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "otype2": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "otype3": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "otype4": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "otype5": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
-                    "otype6": spaces.Box(low=0, high=14, shape=(1,), dtype=np.uint8),
                 })
         else:
             self.observation_space = spaces.Dict(
@@ -155,29 +134,11 @@ class Environment:
                     "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
                 })
 
-
     def _get_obs(self):
         r, c, map_n = ram_map.position(self.game)
         mmap = self.screen_memory[map_n]
         if 0 <= r <= 254 and 0 <= c <= 254:
             mmap[r, c] = 255
-        pokemon_ids = [[0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247], [0xD8A4 , 0xD8D0 , 0xD8FC, 0xD928, 0xD954, 0xD980]]
-        poke1_id, type1 = ram_map.read_pokemon(self.game,pokemon_ids[0][0])
-        poke2_id, type2 = ram_map.read_pokemon(self.game,pokemon_ids[0][1])
-        poke3_id, type3 = ram_map.read_pokemon(self.game,pokemon_ids[0][2])
-        poke4_id, type4 = ram_map.read_pokemon(self.game,pokemon_ids[0][3])
-        poke5_id, type5 = ram_map.read_pokemon(self.game,pokemon_ids[0][4])
-        poke6_id, type6 = ram_map.read_pokemon(self.game,pokemon_ids[0][5])
-        opoke1_id, otype1 = ram_map.read_pokemon(self.game,pokemon_ids[1][0])
-        opoke2_id, otype2 = ram_map.read_pokemon(self.game,pokemon_ids[1][1])
-        opoke3_id, otype3 = ram_map.read_pokemon(self.game,pokemon_ids[1][2])
-        opoke4_id, otype4 = ram_map.read_pokemon(self.game,pokemon_ids[1][3])
-        opoke5_id, otype5 = ram_map.read_pokemon(self.game,pokemon_ids[1][4])
-        opoke6_id, otype6 = ram_map.read_pokemon(self.game,pokemon_ids[1][5])
-        # print(poke1_id, poke2_id, poke3_id, poke4_id, poke5_id, poke6_id)
-        # print(opoke1_id, opoke2_id, opoke3_id, opoke4_id, opoke5_id, opoke6_id)
-        # print(type1, type2, type3, type4, type5, type6)
-        # print(otype1, otype2, otype3, otype4, otype5, otype6)
         if self.extra_obs:
             return {
                 "screen": self.render(),
@@ -190,30 +151,6 @@ class Environment:
                 "snorlax_12": np.array(ram_map.read_bit(self.game, 0xD7D8, 7), dtype=np.uint8),
                 "snorlax_16": np.array(ram_map.read_bit(self.game, 0xD7E0, 1), dtype=np.uint8),
                 "map_n": np.array(map_n, dtype=np.uint8),
-                "ppoke1": np.array(poke1_id, dtype=np.uint8),
-                "ppoke2": np.array(poke2_id, dtype=np.uint8),
-                "ppoke3": np.array(poke3_id, dtype=np.uint8),
-                "ppoke4": np.array(poke4_id, dtype=np.uint8),
-                "ppoke5": np.array(poke5_id, dtype=np.uint8),
-                "ppoke6": np.array(poke6_id, dtype=np.uint8),
-                "opoke1": np.array(opoke1_id, dtype=np.uint8),
-                "opoke2": np.array(opoke2_id, dtype=np.uint8),
-                "opoke3": np.array(opoke3_id, dtype=np.uint8),
-                "opoke4": np.array(opoke4_id, dtype=np.uint8),
-                "opoke5": np.array(opoke5_id, dtype=np.uint8),
-                "opoke6": np.array(opoke6_id, dtype=np.uint8),
-                "ptype1": np.array(type1, dtype=np.uint8),
-                "ptype2": np.array(type2, dtype=np.uint8),
-                "ptype3": np.array(type3, dtype=np.uint8),
-                "ptype4": np.array(type4, dtype=np.uint8),
-                "ptype5": np.array(type5, dtype=np.uint8),
-                "ptype6": np.array(type6, dtype=np.uint8),
-                "otype1": np.array(otype1, dtype=np.uint8),
-                "otype2": np.array(otype2, dtype=np.uint8),
-                "otype3": np.array(otype3, dtype=np.uint8),
-                "otype4": np.array(otype4, dtype=np.uint8),
-                "otype5": np.array(otype5, dtype=np.uint8),
-                "otype6": np.array(otype6, dtype=np.uint8),
             }
         else:
             return {
@@ -221,9 +158,10 @@ class Environment:
                 "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
             }
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None):
         self.reset_count += 1
         self.reset_state()
+        options = options or {}
 
         if self.save_video:
             base_dir = self.s_path
@@ -231,6 +169,10 @@ class Environment:
             full_name = Path(f'reset_{self.reset_count}').with_suffix('.mp4')
             self.full_frame_writer = media.VideoWriter(base_dir / full_name, (144, 160), fps=60)
             self.full_frame_writer.__enter__()
+
+        if options.get("state", None) is not None:
+            self.game.load_state(io.BytesIO(options["state"]))
+            self.swarm_count += 1
 
         self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
         self.time = 0
@@ -258,8 +200,13 @@ class Environment:
         self.caught_pokemon = np.zeros(152, dtype=np.uint8)
         self.moves_obtained = {}
         self.cut_counter = 0
+        self.last_hp = 1.0
+        self.last_party_size = 1
+        state = io.BytesIO()
+        self.game.save_state(state)
+        state.seek(0)
 
-        return self._get_obs(), {}
+        return self._get_obs(), {"state": state.read()}
 
     def step(self, action, fast_video=True):
         run_action_on_emulator(self.game, self.screen, ACTIONS[action], self.headless, fast_video=fast_video,)
@@ -378,6 +325,15 @@ class Environment:
         state.seek(0)
         self.game.save_state(state)
         self.initial_states.append(state)
+
+    def swarming_state(self):
+        state = io.BytesIO()
+        state.seek(0)
+        self.game.save_state(state)
+        return state
+    
+    def update_state(self, state: bytes):
+        self.reset(seed=random.randint(0, 10), options={"state": state})
 
     def glitch_state(self):
         saved = open(f"{GLITCH}glitch_{self.reset_count}_{self.env_id}.state", "wb")
@@ -631,6 +587,8 @@ class Environment:
                     "deaths": self.death_count,
                     "local_expl_rew": len(self.seen_coords)/self.max_episode_steps,
                 },
+                "events": self.event_reward,
+                "state": self.swarming_state(),
             }
     
     def level_rew(self):

@@ -1,13 +1,19 @@
+from dataclasses import field
+from functools import partial
+import heapq
 import json
+import math
+from multiprocessing import Queue
 from pdb import set_trace as T
 import numpy as np
 import contextlib
+import ast
 
 import os
 import random
 import time
 
-from collections import defaultdict
+from collections import defaultdict, deque
 
 import torch
 
@@ -32,7 +38,7 @@ def optimize(data, config, loss):
         torch.cuda.synchronize()
 
 
-def create(config, vecenv, policy, optimizer=None, wandb=None):
+def create(config, vecenv, policy, async_config, optimizer=None, wandb=None):
     seed_everything(config.seed, config.torch_deterministic)
     profile = Profile()
     losses = make_losses()
@@ -58,6 +64,12 @@ def create(config, vecenv, policy, optimizer=None, wandb=None):
     # breakpoint()
     optimizer = torch.optim.Adam(policy.parameters(),
         lr=config.learning_rate, eps=1e-5)
+    
+    env_send_queues = async_config['send_queues']
+    env_recv_queues = async_config['recv_queues']
+    states: dict = field(default_factory=lambda: defaultdict(partial(deque, maxlen=1)))
+    event_tracker: dict = field(default_factory=lambda: {})
+    max_event_count: int = 0
 
     return pufferlib.namespace(
         config=config,
@@ -74,6 +86,11 @@ def create(config, vecenv, policy, optimizer=None, wandb=None):
         stats={},
         msg=msg,
         last_log_time=time.time(),
+        env_send_queues=env_send_queues,
+        env_recv_queues=env_recv_queues,
+        states=states,
+        event_tracker=event_tracker,
+        max_event_count=max_event_count,
     )
 
 @pufferlib.utils.profile
@@ -123,12 +140,37 @@ def evaluate(data):
 
             for i in info:
                 for k, v in pufferlib.utils.unroll_nested_dict(i):
+                    if "state/" in k:
+                        _, key = k.split("/")
+                        key: tuple[str] = ast.literal_eval(key)
+                        data.states[key].append(v)
+                    # elif "required_count" == k:
+                    #     for count, eid in zip(
+                    #         infos["required_count"], infos["env_id"]
+                    #     ):
+                    #         data.event_tracker[eid] = count
+                    #     infos[k].append(v)
+                    else:
+                        infos[k].append(v)
                     infos[k].append(v)
 
         with profile.env:
             data.vecenv.send(actions)
 
     with profile.eval_misc:
+        if (hasattr(data.config, "swarm_keep_pct") and "events" in infos and "state" in infos):
+            largest = [x[0] for x in heapq.nlargest(math.ceil(data.config.num_envs * data.config.swarm_keep_pct), enumerate(infos["events"]), key=lambda x: x[1],)]
+            reset_states = [random.choice(largest) if i not in largest else i for i in range(data.config.num_envs)]
+            print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
+            print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
+            print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
+            print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
+            print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
+            for i in range(data.config.num_envs):
+                data.env_recv_queues[i].put(infos["state"][reset_states[i]])
+            for i in range(data.config.num_envs):
+                data.env_send_queues[i].get()
+
         data.stats = {}
 
         # Moves into models... maybe. Definitely moves.
