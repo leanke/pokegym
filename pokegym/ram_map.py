@@ -572,7 +572,7 @@ def gym3(game):
 
 def gym4(game):
    #gym 4 Celadon	
-    four = GYM_LEADER * int(read_bit(game, 0xD792, 1))
+    four = GYM_LEADER * int(read_bit(game, 0xD77C, 1))
     g4_1 = GYM_TRAINER * int(read_bit(game, 0xD77C, 2)) #	"0xD77C-2": "Beat Celadon Gym Trainer 0",
     g4_2 = GYM_TRAINER * int(read_bit(game, 0xD77C, 3)) #	"0xD77C-3": "Beat Celadon Gym Trainer 1",
     g4_3 = GYM_TRAINER * int(read_bit(game, 0xD77C, 4)) #	"0xD77C-4": "Beat Celadon Gym Trainer 2",

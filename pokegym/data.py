@@ -57,34 +57,78 @@ events_list = [
     ]
 
 required_events = [
-    (0xD838, 7), # Beat_Silph_Co_Giovanni
-    (0xD803, 1), # Rubbed_Captains_Back
-    (0xD771, 1), # got_bike_voucher
-    (0xD7D8, 7), # route12_snorlax_beat
-    (0xD7E0, 1), # route16_snorlax_beat
-    (0xD803, 0), # hm01
-    (0xD7E0, 6), # hm02
-    (0xD857, 0), # hm03
-    (0xD78E, 0), # hm04
-    (0xD7C2, 0), # hm05
-    (0xD7F2, 7), # left_bills_house_after_helping
-    (0xD76C, 0), # got_poke_flute
-    (0xD75F, 0), # got_bicycle
-    (0xD796, 0), # mansion_switch_on
-    (0xD78E, 1), # gave_gold_teeth
-    (0xD7B1, 6), # got_hitmonlee
-    (0xD7B1, 7), # got_hitmonchan
-    (0xD81B, 7), # beat_rocket_hideout_giovanni
-    (0xD77E, 1), # found_rocket_hideout
-    (0xD768, 7), # beat_ghost_marowak
-    (0xD755, 7), # gym leader one
-    (0xD75E, 7), # gym leader two
-    (0xD773, 7), # gym leader three
-    (0xD792, 1), # gym leader four
-    (0xD792, 1), # gym leader five
-    (0xD7B3, 1), # gym leader six
-    (0xD79A, 1), # gym leader seven
-    (0xD751, 1), # gym leader eight
+    (0xD838, 7), #      "Beat_Silph_Co_Giovanni"
+    # (0xD803, 1), #    "Rubbed_Captains_Back"
+    # (0xD771, 1), #    "got_bike_voucher"
+    (0xD7D8, 7), #      "route12_snorlax_beat"
+    (0xD7E0, 1), #      "route16_snorlax_beat"
+    # (0xD803, 0), #    "hm01"
+    # (0xD7E0, 6), #    "hm02"
+    # (0xD857, 0), #    "hm03"
+    # (0xD78E, 0), #    "hm04"
+    # (0xD7C2, 0), #    "hm05"
+    # (0xD7F2, 7), #    "left_bills_house_after_helping"
+    (0xD76C, 0), #      "got_poke_flute"
+    # (0xD75F, 0), #    "got_bicycle"
+    (0xD796, 0), #      "mansion_switch_on"
+    (0xD78E, 1), #      "gave_gold_teeth"
+    (0xD7B1, 6), #      "got_hitmonlee"
+    (0xD7B1, 7), #      "got_hitmonchan"
+    (0xD81B, 7), #      "beat_rocket_hideout_giovanni"
+    (0xD77E, 1), #      "found_rocket_hideout"
+    (0xD768, 7), #      "beat_ghost_marowak"
+    # (0xD755, 7), #    "gym leader one	Pewter"
+    (0xD755, 2), #	    "0xD755-2": "Beat Pewter Gym Trainer 0",
+    # (0xD75E, 7), #    "gym leader two Cerulean"
+    (0xD75E, 2), #	    "0xD75E-2": "Beat Cerulean Gym Trainer 0",
+    (0xD75E, 3), #	    "0xD75E-3": "Beat Cerulean Gym Trainer 1",
+    (0xD773, 7), #      "gym leader three Vermilion"
+    (0xD773, 1), #      "0xD773-1": "1S Lock Opened",
+    # (0xD773, 0), #    "0xD773-0": "2Nd Lock Opened",
+    (0xD773, 2), #	    "0xD773-2": "Beat Vermilion Gym Trainer 0",
+    (0xD773, 3), #	    "0xD773-3": "Beat Vermilion Gym Trainer 1",
+    (0xD773, 4), #	    "0xD773-4": "Beat Vermilion Gym Trainer 2",
+    (0xD77C, 1), #      "gym leader four Celadon"
+    (0xD77C, 2), #  	"0xD77C-2": "Beat Celadon Gym Trainer 0",
+    (0xD77C, 3), #	    "0xD77C-3": "Beat Celadon Gym Trainer 1",
+    (0xD77C, 4), #	    "0xD77C-4": "Beat Celadon Gym Trainer 2",
+    (0xD77C, 5), #	    "0xD77C-5": "Beat Celadon Gym Trainer 3",
+    (0xD77C, 6), #	    "0xD77C-6": "Beat Celadon Gym Trainer 4",
+    (0xD77C, 7), #	    "0xD77C-7": "Beat Celadon Gym Trainer 5",
+    (0xD77D, 0), #	    "0xD77D-0": "Beat Celadon Gym Trainer 6",
+    (0xD792, 1), #      "gym leader five Fuchsia"
+    # (0xD792, 2), #    "0xD792-2": "Beat Fuchsia Gym Trainer 0",
+    # (0xD792, 3), #	"0xD792-3": "Beat Fuchsia Gym Trainer 1",
+    # (0xD792, 4), #	"0xD792-4": "Beat Fuchsia Gym Trainer 2",
+    # (0xD792, 5), #	"0xD792-5": "Beat Fuchsia Gym Trainer 3",
+    # (0xD792, 6), #	"0xD792-6": "Beat Fuchsia Gym Trainer 4",
+    # (0xD792, 7), #	"0xD792-7": "Beat Fuchsia Gym Trainer 5",
+    (0xD7B3, 1), #      "gym leader six Saffron"
+    # (0xD7B3, 2), #	"0xD7B3-2": "Beat Saffron Gym Trainer 0",
+    # (0xD7B3, 3), #	"0xD7B3-3": "Beat Saffron Gym Trainer 1",
+    # (0xD7B3, 4), #	"0xD7B3-4": "Beat Saffron Gym Trainer 2",
+    # (0xD7B3, 5), #	"0xD7B3-5": "Beat Saffron Gym Trainer 3",
+    # (0xD7B3, 6), #	"0xD7B3-6": "Beat Saffron Gym Trainer 4",
+    # (0xD7B3, 7), #	"0xD7B3-7": "Beat Saffron Gym Trainer 5",
+    # (0xD7B4, 0), #	"0xD7B4-0": "Beat Saffron Gym Trainer 6",
+    (0xD79A, 1), #      "gym leader seven Cinnabar"
+    (0xD79A, 2), #	    "0xD79A-2": "Beat Cinnabar Gym Trainer 0",
+    (0xD79A, 3), #	    "0xD79A-3": "Beat Cinnabar Gym Trainer 1",
+    (0xD79A, 4), #	    "0xD79A-4": "Beat Cinnabar Gym Trainer 2",
+    (0xD79A, 5), #	    "0xD79A-5": "Beat Cinnabar Gym Trainer 3",
+    (0xD79A, 6), #	    "0xD79A-6": "Beat Cinnabar Gym Trainer 4",
+    (0xD79A, 7), #  	"0xD79A-7": "Beat Cinnabar Gym Trainer 5",
+    (0xD79B, 0), #	    "0xD79B-0": "Beat Cinnabar Gym Trainer 6",
+    (0xD751, 1), #      "gym leader eight Viridian"
+    (0xD74C, 0), #      "0xD74C-0": "gym_door_opened",
+    (0xD751, 2), #	    "0xD751-2": "Beat Viridian Gym Trainer 0",
+    (0xD751, 3), #	    "0xD751-3": "Beat Viridian Gym Trainer 1",
+    (0xD751, 4), #	    "0xD751-4": "Beat Viridian Gym Trainer 2",
+    (0xD751, 5), #	    "0xD751-5": "Beat Viridian Gym Trainer 3",
+    (0xD751, 6), #	    "0xD751-6": "Beat Viridian Gym Trainer 4",
+    (0xD751, 7), #	    "0xD751-7": "Beat Viridian Gym Trainer 5",
+    (0xD752, 0), #	    "0xD752-0": "Beat Viridian Gym Trainer 6",
+    (0xD752, 1), #	    "0xD752-1": "Beat Viridian Gym Trainer 7",
     ]
 
 pokemon_data = [

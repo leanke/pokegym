@@ -603,7 +603,7 @@ class Environment:
                     "leader1": int(ram_map.read_bit(self.game, 0xD755, 7)),
                     "leader2": int(ram_map.read_bit(self.game, 0xD75E, 7)),
                     "leader3": int(ram_map.read_bit(self.game, 0xD773, 7)),
-                    "leader4": int(ram_map.read_bit(self.game, 0xD792, 1)),
+                    "leader4": int(ram_map.read_bit(self.game, 0xD77C, 1)),
                     "leader5": int(ram_map.read_bit(self.game, 0xD792, 1)),
                     "leader6": int(ram_map.read_bit(self.game, 0xD7B3, 1)),
                     "leader7": int(ram_map.read_bit(self.game, 0xD79A, 1)),
