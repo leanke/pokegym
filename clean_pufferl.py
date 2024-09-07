@@ -161,10 +161,10 @@ def evaluate(data):
         path = os.path.join(config.data_dir, config.exp_id)
         if not os.path.exists(path):
             os.makedirs(path)
-        if data.config.plot_activations:
+        if data.config.plot_activations and data.epoch % 200 == 0:
                 activations = policy.policy.get_activations(o_device)
                 policy.policy.plot_activations(activations, path)
-        if data.config.save_embeddings:
+        if data.config.save_embeddings and data.epoch % 200 == 0:
                 columns, embeddings = data.policy.policy.get_embeds()
                 embedding_data = {"column": [columns], "embed": [embeddings]}
                 json_name = f'pokemon_embeddings_{data.epoch:06d}.json'
