@@ -43,29 +43,22 @@ class Policy(nn.Module):
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
         self.extra_obs = env.unwrapped.env.extra_obs # env.unwrapped is GymnasiumPufferEnv
         if self.extra_obs:
-            self.flat_size = self.flat_size + 11 #+ 144
+            self.flat_size = self.flat_size + 11 + 1664 + 1024 #+ 144
         self.add_boey_obs = env.unwrapped.env.add_boey_obs
         if self.add_boey_obs:
             self.boey_nets()
             self.flat_size = self.flat_size + 150
 
         self.screen= nn.Sequential(
-            pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 8, stride=4)),
+            pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 3, stride=2)),
             nn.ReLU(),
-            pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
+            pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 3, stride=2)),
             nn.ReLU(),
-            pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=1)),
+            pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=2)),
             nn.ReLU(),
-            nn.Flatten(),
+            # nn.Flatten(),
         )
-        self.single_screen= nn.Sequential(
-            pufferlib.pytorch.layer_init(nn.Conv2d(3, 32, 8, stride=4)),
-            nn.ReLU(),
-            pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
-            nn.ReLU(),
-            pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=1)),
-            nn.ReLU(),
-        )
+        self.flatten = nn.Flatten()
         self.map_embedding = torch.nn.Embedding(248, 4, dtype=torch.float32)
         self.poke_id = nn.Embedding(190, 6, dtype=torch.float32)
         self.poke_type = nn.Embedding(15, 6, dtype=torch.float32)
@@ -89,7 +82,7 @@ class Policy(nn.Module):
         if self.extra_obs:
             cat = torch.cat(
             (
-                self.screen(screen.float() / 255.0).squeeze(1),
+                self.flatten(self.screen(screen.float() / 255.0)).squeeze(1),
                 self.map_embedding(observation["map_n"].long()).squeeze(1),
                 observation["flute"].float(),
                 observation["bike"].float(),
@@ -151,15 +144,19 @@ class Policy(nn.Module):
     def get_activations(self, observations):
         # x = observations['screen']
         observations = pufferlib.pytorch.nativize_tensor(observations, self.dtype)
+        screens = torch.cat([
+            observations['screen'], 
+            observations['fixed_window'],
+            ], dim=-1)
         self.activations = []
         def hook_fn(module, input, output):
             self.activations.append(output)
         hooks = []
-        for layer in self.single_screen:
+        for layer in self.screen:
             hooks.append(layer.register_forward_hook(hook_fn))
-            input_tensor = observations['screen'].permute(0, 3, 1, 2)
+            input_tensor = screens.permute(0, 3, 1, 2)
             # input_tensor = input_tensor[2:3]
-        _ = self.single_screen(input_tensor.float())
+        _ = self.screen(input_tensor.float() / 255.0)
         for hook in hooks:
             hook.remove()
         return self.activations

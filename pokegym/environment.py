@@ -45,7 +45,7 @@ class Environment:
         if rom_path is None or not os.path.exists(rom_path):
             raise FileNotFoundError("No ROM file found in the specified directory.")
         if state_path is None:
-            state_path = STATE_PATH + "bulba/Pewter.state" # "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
+            state_path = STATE_PATH +  "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
         self.game, self.screen = make_env(rom_path, headless, quiet, save_video=True, **kwargs)
         self.initial_states = [open_state_file(state_path)]
         self.headless = headless
@@ -91,7 +91,7 @@ class Environment:
         # self.event = Event(self.game)
         self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self.poketower = [142, 143, 144, 145, 146, 147, 148]
-        self.pokehideout = [199, 200, 201, 202, 203] # , 135
+        self.pokehideout = [199, 200, 201, 202, 203, 135] # , 135
         self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
 
     def get_fixed_window(self, arr, y, x, window_size):
@@ -677,7 +677,7 @@ class Environment:
                     "leader1": int(ram_map.read_bit(self.game, 0xD755, 7)),
                     "leader2": int(ram_map.read_bit(self.game, 0xD75E, 7)),
                     "leader3": int(ram_map.read_bit(self.game, 0xD773, 7)),
-                    "leader4": int(ram_map.read_bit(self.game, 0xD792, 1)),
+                    "leader4": int(ram_map.read_bit(self.game, 0xD77C, 1)),
                     "leader5": int(ram_map.read_bit(self.game, 0xD792, 1)),
                     "leader6": int(ram_map.read_bit(self.game, 0xD7B3, 1)),
                     "leader7": int(ram_map.read_bit(self.game, 0xD79A, 1)),

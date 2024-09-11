@@ -78,10 +78,10 @@ required_events = [
     (0xD77E, 1), #      "found_rocket_hideout"
     (0xD768, 7), #      "beat_ghost_marowak"
     # (0xD755, 7), #    "gym leader one	Pewter"
-    (0xD755, 2), #	    "0xD755-2": "Beat Pewter Gym Trainer 0",
+    # (0xD755, 2), #	    "0xD755-2": "Beat Pewter Gym Trainer 0",
     # (0xD75E, 7), #    "gym leader two Cerulean"
-    (0xD75E, 2), #	    "0xD75E-2": "Beat Cerulean Gym Trainer 0",
-    (0xD75E, 3), #	    "0xD75E-3": "Beat Cerulean Gym Trainer 1",
+    # (0xD75E, 2), #	    "0xD75E-2": "Beat Cerulean Gym Trainer 0",
+    # (0xD75E, 3), #	    "0xD75E-3": "Beat Cerulean Gym Trainer 1",
     (0xD773, 7), #      "gym leader three Vermilion"
     (0xD773, 1), #      "0xD773-1": "1S Lock Opened",
     # (0xD773, 0), #    "0xD773-0": "2Nd Lock Opened",
