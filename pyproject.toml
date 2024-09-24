@@ -1,3 +1,5 @@
+[build-system]
+requires = ["cython>=3.0", "pip>=23.0", "setuptools>=61.0", "wheel", "numpy==1.23.3"]
 [project]
 name = "pokegym"
 version = "0.1.8"

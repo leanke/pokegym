@@ -99,14 +99,14 @@ def train(args, make_env, policy_cls, rnn_cls, async_config, wandb,):
 def env_creator(train_config: List[Dict[str, Any]], wrappers: List[Dict[str, Any]], env_config: List[Dict[str, Any]], async_config) -> Callable[[], pufferlib.emulation.GymnasiumPufferEnv]:
     def make() -> pufferlib.emulation.GymnasiumPufferEnv:
         env = Environment(env_config)
-        if wrappers['swarming_wrapper']:
-            env = AsyncWrapper(env, async_config['send_queues'], async_config['recv_queues'])
         if wrappers['obs_wrapper']:
             env = ObsWrapper(env)
+        if wrappers['swarming_wrapper']:
+            env = AsyncWrapper(env, async_config['send_queues'], async_config['recv_queues'])
         if wrappers['stream_wrapper']:
             env = StreamWrapper(env, stream_metadata = {"user": f"{wrappers['stream_wrapper_name']}\n",})
         env = RenderWrapper(env)
-        env = pufferlib.postprocess.EpisodeStats(env)
+        # env = pufferlib.postprocess.EpisodeStats(env)
         return pufferlib.emulation.GymnasiumPufferEnv(env=env)
     return make
 

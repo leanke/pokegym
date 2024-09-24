@@ -10,10 +10,13 @@ Y_POS_ADDR = 0xD361
 MAP_N_ADDR = 0xD35E
 BADGE_1_ADDR = 0xD356
 WCUTTILE = 0xCD4D # 61 if Cut used; 0 default. resets to default on map_n change or battle.
+MONEY_ADDR_1 = 0xD347
+MONEY_ADDR_100 = 0xD348
+MONEY_ADDR_10000 = 0xD349
 
 
 GYM_LEADER = 5
-GYM_TRAINER = 2
+GYM_TRAINER = 3
 GYM_TASK = 2
 TRAINER = 1
 HM = 5
@@ -480,10 +483,10 @@ def mansion(game):
 
 def safari(game):
   gave_gold_teeth = QUEST * int(read_bit(game, 0xD78E, 1))
-  safari_game_over = EVENT * int(read_bit(game, 0xD790, 6))
-  in_safari_zone = EVENT * int(read_bit(game, 0xD790, 7))
+#   safari_game_over = EVENT * int(read_bit(game, 0xD790, 6))
+#   in_safari_zone = EVENT * int(read_bit(game, 0xD790, 7))
 
-  return sum([gave_gold_teeth, safari_game_over, in_safari_zone])
+  return sum([gave_gold_teeth])
 
 def dojo(game):
   defeated_fighting_dojo = BAD * int(read_bit(game, 0xD7B1, 0))
@@ -572,7 +575,7 @@ def gym3(game):
 
 def gym4(game):
    #gym 4 Celadon	
-    four = GYM_LEADER * int(read_bit(game, 0xD792, 1))
+    four = GYM_LEADER * int(read_bit(game, 0xD77C, 1))
     g4_1 = GYM_TRAINER * int(read_bit(game, 0xD77C, 2)) #	"0xD77C-2": "Beat Celadon Gym Trainer 0",
     g4_2 = GYM_TRAINER * int(read_bit(game, 0xD77C, 3)) #	"0xD77C-3": "Beat Celadon Gym Trainer 1",
     g4_3 = GYM_TRAINER * int(read_bit(game, 0xD77C, 4)) #	"0xD77C-4": "Beat Celadon Gym Trainer 2",
@@ -656,7 +659,8 @@ def bit_count(bits):
     return bin(bits).count("1")
 
 def read_bit(game, addr, bit) -> bool:
-    # add padding so zero will read '0b100000000' instead of '0b0'
+    bit_list = []
+
     return bin(256 + game.get_memory_value(addr))[-bit - 1] == "1"
 
 def mem_val(game, addr):
@@ -670,6 +674,11 @@ def read_uint16(game, start_addr):
     return 256 * val_256 + val_1
 
 ######################################################################################################
+
+def money(game):
+    return (100 * 100 * bcd(game.get_memory_value(MONEY_ADDR_1))
+        + 100 * bcd(game.get_memory_value(MONEY_ADDR_100))
+        + bcd(game.get_memory_value(MONEY_ADDR_10000)))
 
 def player_poke(game):
     id = game.get_memory_value(0xD014)

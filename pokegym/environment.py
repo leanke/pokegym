@@ -45,7 +45,7 @@ class Environment:
         if rom_path is None or not os.path.exists(rom_path):
             raise FileNotFoundError("No ROM file found in the specified directory.")
         if state_path is None:
-            state_path = STATE_PATH + "bulba/Pewter.state" # "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
+            state_path = STATE_PATH +  "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
         self.game, self.screen = make_env(rom_path, headless, quiet, save_video=True, **kwargs)
         self.initial_states = [open_state_file(state_path)]
         self.headless = headless
@@ -63,6 +63,7 @@ class Environment:
         self.expl_scale = env_config['expl_scale']
         self.reset_mem = env_config['reset_mem']
         self.countdown = env_config['countdown']
+        self.inf_money = env_config['inf_money']
         self.save_video = env_config['save_video']
         self.db_path = Path(f"{env_config['db_path']}")
         
@@ -86,14 +87,15 @@ class Environment:
         self.reset_count = 0
         self.full_reset_count = 0
         self.swarm_count = 0
-        # self.gym = Gym(self.game)
+        self.gym = Gym(self.game)
         # self.story = Story(self.game)
         # self.event = Event(self.game)
         self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self.poketower = [142, 143, 144, 145, 146, 147, 148]
-        self.pokehideout = [199, 200, 201, 202, 203] # , 135
+        self.pokehideout = [199, 200, 201, 202, 203, 135] # , 135
         self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
-
+        self.safari = [156, 217, 218, 219, 220, 221, 222, 223, 224, 225] # 156 - safari gate2, 21: 'Safari Zone (Rest house 1)', 222: 'Safari Zone (Prize house)', 223: 'Safari Zone (Rest house 2)', 224: 'Safari Zone (Rest house 3)', 225: 'Safari Zone (Rest house 4)'
+        
     def get_fixed_window(self, arr, y, x, window_size):
         height, width, _ = arr.shape
         h_w, w_w = window_size[0], window_size[1]
@@ -181,6 +183,11 @@ class Environment:
         if options.get("state", None) is not None:
             self.game.load_state(io.BytesIO(options["state"]))
             self.swarm_count += 1
+
+        if self.inf_money:
+            r, c, map_n = ram_map.position(self.game)
+            if map_n == 7:
+                ram_map.write_mem(self.game, 0xD347, 0x09)
 
         self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
         info = {}
@@ -416,48 +423,60 @@ class Environment:
         # Exploration reward
         self.seen_coords.add((r, c, map_n))
         local_expl_rew = (len(self.seen_coords)/self.max_episode_steps) * self.expl_scale
-        if int(ram_map.read_bit(self.game, 0xD77E, 1)) == 0: # pre hideout found
-            if map_n in self.poketower:
-                exploration_reward = 0
-            elif map_n == 135:
-                exploration_reward = (0.03 * len(self.seen_coords)) 
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        elif int(ram_map.read_bit(self.game, 0xD81B, 7)) == 0 and int(ram_map.read_bit(self.game, 0xD77E, 1)) == 1: # pre hideout done post found hideout
-            if map_n in self.pokehideout:
-                exploration_reward = (0.03 * len(self.seen_coords))
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        elif int(ram_map.read_bit(self.game, 0xD7E0, 7)) == 0 and int(ram_map.read_bit(self.game, 0xD81B, 7)) == 1: # hideout done poketower not done
-            if map_n in self.poketower:
-                exploration_reward = (0.03 * len(self.seen_coords))
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        elif int(ram_map.read_bit(self.game, 0xD76C, 0)) == 0 and int(ram_map.read_bit(self.game, 0xD7E0, 7)) == 1: # tower done no flute
-            if map_n == 149:
-                exploration_reward = (0.03 * len(self.seen_coords))
-            elif map_n in self.poketower:
-                exploration_reward = (0.01 * len(self.seen_coords))
-            elif map_n in self.pokehideout:
-                exploration_reward = (0.01 * len(self.seen_coords))
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        elif int(ram_map.read_bit(self.game, 0xD838, 7)) == 0 and int(ram_map.read_bit(self.game, 0xD76C, 0)) == 1: # flute gotten pre silphco
-            if map_n in self.silphco:
-                exploration_reward = (0.03 * len(self.seen_coords))
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        elif map_n == 7: # TODO: Cleanup maybe conditional on surf and teeth idk
-            exploration_reward = (0.03 * len(self.seen_coords))
-        else:
-            exploration_reward = (0.02 * len(self.seen_coords))
+        self.gym.update()
+        high_gym_maps, low_gym_maps = self.gym.maps()
 
-        # # Gym
+        if map_n in high_gym_maps:
+            exploration_reward = (0.03 * len(self.seen_coords)) 
+        else:
+            if int(ram_map.read_bit(self.game, 0xD77C, 1)) == 0:
+                if map_n == 6:
+                    exploration_reward = (0.03 * len(self.seen_coords)) 
+            if int(ram_map.read_bit(self.game, 0xD77E, 1)) == 0: # pre hideout found
+                if map_n in self.poketower:
+                    exploration_reward = 0
+                elif map_n == 135:
+                    exploration_reward = (0.03 * len(self.seen_coords)) 
+                else:
+                    exploration_reward = (0.02 * len(self.seen_coords))
+            elif int(ram_map.read_bit(self.game, 0xD81B, 7)) == 0 and int(ram_map.read_bit(self.game, 0xD77E, 1)) == 1: # pre hideout done post found hideout
+                if map_n in self.pokehideout:
+                    exploration_reward = (0.03 * len(self.seen_coords))
+                else:
+                    exploration_reward = (0.02 * len(self.seen_coords))
+            elif int(ram_map.read_bit(self.game, 0xD7E0, 7)) == 0 and int(ram_map.read_bit(self.game, 0xD81B, 7)) == 1: # hideout done poketower not done
+                if map_n in self.poketower:
+                    exploration_reward = (0.03 * len(self.seen_coords))
+                else:
+                    exploration_reward = (0.02 * len(self.seen_coords))
+            elif int(ram_map.read_bit(self.game, 0xD76C, 0)) == 0 and int(ram_map.read_bit(self.game, 0xD7E0, 7)) == 1: # tower done no flute
+                if map_n == 149:
+                    exploration_reward = (0.03 * len(self.seen_coords))
+                elif map_n in self.poketower:
+                    exploration_reward = (0.01 * len(self.seen_coords))
+                elif map_n in self.pokehideout:
+                    exploration_reward = (0.01 * len(self.seen_coords))
+                else:
+                    exploration_reward = (0.02 * len(self.seen_coords))
+            elif int(ram_map.read_bit(self.game, 0xD838, 7)) == 0 and int(ram_map.read_bit(self.game, 0xD76C, 0)) == 1: # flute gotten pre silphco
+                if map_n in self.silphco:
+                    exploration_reward = (0.03 * len(self.seen_coords))
+                else:
+                    exploration_reward = (0.02 * len(self.seen_coords))
+            elif int(ram_map.read_bit(self.game, 0xD857, 0)) == 0 or int(ram_map.read_bit(self.game, 0xD78E, 1)) == 0: #hm03 and gold teeth given
+                if map_n in self.safari or map_n == 7 or map_n == 155:
+                    exploration_reward = (0.03 * len(self.seen_coords))
+                else:
+                    exploration_reward = (0.02 * len(self.seen_coords)) 
+            else:
+                exploration_reward = (0.02 * len(self.seen_coords))
+        
+
+        # Gym
         # self.gym.update()
         # high_gym_maps, low_gym_maps = self.gym.maps()
-        # gym_rew = self.gym.rew_sum
-        # # print(f'Low Gym: {low_gym_maps}\n High Gym: {high_gym_maps}')
-        # # print(f'Gym Rew: {gym_rew}')
+        # print(f'Low Gym: {low_gym_maps}\n High Gym: {high_gym_maps}')
+        # print(f'Gym Rew: {gym_rew}')
 
         # # Event
         # self.event.update()
@@ -603,11 +622,17 @@ class Environment:
                     "leader1": int(ram_map.read_bit(self.game, 0xD755, 7)),
                     "leader2": int(ram_map.read_bit(self.game, 0xD75E, 7)),
                     "leader3": int(ram_map.read_bit(self.game, 0xD773, 7)),
-                    "leader4": int(ram_map.read_bit(self.game, 0xD792, 1)),
+                    "leader4": int(ram_map.read_bit(self.game, 0xD77C, 1)),
                     "leader5": int(ram_map.read_bit(self.game, 0xD792, 1)),
                     "leader6": int(ram_map.read_bit(self.game, 0xD7B3, 1)),
                     "leader7": int(ram_map.read_bit(self.game, 0xD79A, 1)),
                     "leader8": int(ram_map.read_bit(self.game, 0xD751, 1)),
+                    "hm01": int(ram_map.read_bit(self.game, 0xD803, 0)),
+                    "hm02": int(ram_map.read_bit(self.game, 0xD7E0, 6)),
+                    "hm03": int(ram_map.read_bit(self.game, 0xD857, 0)),
+                    "hm04": int(ram_map.read_bit(self.game, 0xD78E, 0)),
+                    "hm05": int(ram_map.read_bit(self.game, 0xD7C2, 0)),
+                    "gold_teeth_given": int(ram_map.read_bit(self.game, 0xD78E, 1)),
                     "got_bike": int(ram_map.read_bit(self.game, 0xD75F, 0)),
                     "beat_hideout": int(ram_map.read_bit(self.game, 0xD81B, 7)),
                     "saved_fuji": int(ram_map.read_bit(self.game, 0xD7E0, 7)),
@@ -615,6 +640,7 @@ class Environment:
                     "beat_silphco": int(ram_map.read_bit(self.game, 0xD838, 7)),
                     "beat_snorlax_12": int(ram_map.read_bit(self.game, 0xD7D8, 7)),
                     "beat_snorlax_16": int(ram_map.read_bit(self.game, 0xD7E0, 1)),   
+
                 },
                 "Events": {
                     "silph": ram_map.silph_co(self.game),
@@ -773,6 +799,15 @@ class Environment:
         death_reward = 0 # -0.08 * self.death_count  # -0.05
         healing_reward = self.total_healing
         return healing_reward
+
+    # def safari_game(self):
+    #     test = 0
+    #     #   in_safari_zone = EVENT * int(read_bit(game, 0xD790, 7))
+    #     # wNumSafariBalls:: ; da47
+    #     # wSafariSteps:: ; d70d
+    #     # ; starts at 502
+        
+    #     return test
 
     def close(self):
         self.game.stop(False)
