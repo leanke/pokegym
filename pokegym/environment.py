@@ -69,7 +69,7 @@ class Environment:
         
 
         R, C = self.screen.raw_screen_buffer_dims()
-        self.obs_size = (R // 2, C // 2, 3) # 72, 80, 3
+        self.obs_size = (R // 2, C // 2, 1) # 72, 80, 1
         self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
         self.observation_space = spaces.Dict({})
         self.obs_space()
@@ -120,7 +120,7 @@ class Environment:
         )
 
     def render(self):
-        return self.screen.screen_ndarray()[::2, ::2]
+        return self.screen.screen_ndarray()[::2, ::2, 1]
     
     def obs_space(self):
         if self.extra_obs:

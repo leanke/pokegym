@@ -22,7 +22,7 @@ class Recurrent(pufferlib.models.LSTMWrapper):
 
     
 class Policy(nn.Module):
-    def __init__(self, env, *args, framestack=4, flat_size=64*5*6, input_size=512, hidden_size=512, output_size=512, channels_last=True, downsample=1, **kwargs): #64*6*6+90
+    def __init__(self, env, *args, framestack=2, flat_size=64*5*6, input_size=512, hidden_size=512, output_size=512, channels_last=True, downsample=1, **kwargs): #64*6*6+90
         super().__init__()
         self.save_table = True
         self.channels_last = channels_last
@@ -33,7 +33,7 @@ class Policy(nn.Module):
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
         self.extra_obs = env.unwrapped.env.extra_obs # env.unwrapped is GymnasiumPufferEnv
         if self.extra_obs:
-            self.flat_size = self.flat_size + 11 + 1664 + 1024 #+ 144
+            self.flat_size = self.flat_size + 11 # + 1664 + 1024 #+ 144
         self.add_boey_obs = env.unwrapped.env.add_boey_obs
         if self.add_boey_obs:
             self.boey_nets()
