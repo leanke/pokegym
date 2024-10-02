@@ -33,7 +33,7 @@ class Policy(nn.Module):
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
         self.extra_obs = env.unwrapped.env.extra_obs # env.unwrapped is GymnasiumPufferEnv
         if self.extra_obs:
-            self.flat_size = self.flat_size + 11 # + 1664 + 1024 #+ 144
+            self.flat_size = self.flat_size + 11 + 1664 + 1024 #+ 144
         self.add_boey_obs = env.unwrapped.env.add_boey_obs
         if self.add_boey_obs:
             self.boey_nets()

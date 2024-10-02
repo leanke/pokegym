@@ -120,7 +120,9 @@ class Environment:
         )
 
     def render(self):
-        return self.screen.screen_ndarray()[::2, ::2, 1]
+        screen = np.expand_dims(self.screen.screen_ndarray()[:, :, 1], axis=-1)
+        screen = screen[::2, ::2]
+        return screen
     
     def obs_space(self):
         if self.extra_obs:
