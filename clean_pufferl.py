@@ -157,6 +157,20 @@ def evaluate(data):
             data.vecenv.send(actions)
 
     with profile.eval_misc:
+        config = data.config
+        path = os.path.join(config.data_dir, config.exp_id)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        if data.config.plot_activations:
+                activations = policy.policy.get_activations(o_device)
+                policy.policy.plot_activations(activations, path)
+        if data.config.save_embeddings:
+                columns, embeddings = data.policy.policy.get_embeds()
+                embedding_data = {"column": [columns], "embed": [embeddings]}
+                json_name = f'pokemon_embeddings_{data.epoch:06d}.json'
+                json_path = os.path.join(path, json_name)
+                with open(json_path, 'w') as f:
+                    json.dump(embedding_data, f, indent=4)
         if (hasattr(data.config, "swarm") and data.config.swarm and "required_count" in infos):
             max_event_count = 0
             new_state_key = ""
@@ -217,10 +231,6 @@ def evaluate(data):
                 data.stats['Media/exploration_map'] = data.wandb.Image(rendered)
 
         for k, v in infos.items():
-            if '_map' in k and data.wandb is not None:
-                data.stats[f'Media/{k}'] = data.wandb.Image(v[0])
-                continue
-
             try: # TODO: Better checks on log data types
                 data.stats[k] = np.mean(v)
             except:
@@ -803,6 +813,8 @@ def print_dashboard(env_name, global_step, epoch, profile, losses, stats, msg, c
     right.add_column(f"{c1}Value", justify="right", width=10)
     i = 0
     for metric, value in stats.items():
+        if 'Events/' in metric:
+            continue
         try: # Discard non-numeric values
             int(value)
         except:
