@@ -1,11 +1,6 @@
 import json
-import os
-from pathlib import Path
 from pdb import set_trace as T
-import uuid
 
-from matplotlib import pyplot as plt
-import numpy as np
 import torch
 import torch.nn as nn
 
@@ -16,7 +11,7 @@ import pufferlib.models
 from pokegym.data import poke_and_type_dict, map_dict
 
 # torch._dynamo.config.capture_scalar_outputs = True
-UNIQ_RUN = Path(f'{str(uuid.uuid4())[:4]}')
+
 
 class Recurrent(pufferlib.models.LSTMWrapper):
     def __init__(self, env, policy, input_size=512, hidden_size=512, num_layers=1):
@@ -24,15 +19,10 @@ class Recurrent(pufferlib.models.LSTMWrapper):
         
     def get_embeds(self):
         return self.policy.get_embeds()
-    
-    def get_activations(self, observations):
-        return self.policy.get_activations(observations)
-    
-    def plot_activations(self, activations):
-        return self.policy.plot_activations(activations)
 
+    
 class Policy(nn.Module):
-    def __init__(self, env, *args, framestack=4, flat_size=64*5*6, input_size=512, hidden_size=512, output_size=512, channels_last=True, downsample=1, **kwargs): #64*6*6+90
+    def __init__(self, env, *args, framestack=2, flat_size=64*5*6, input_size=512, hidden_size=512, output_size=512, channels_last=True, downsample=1, **kwargs): #64*6*6+90
         super().__init__()
         self.save_table = True
         self.channels_last = channels_last
@@ -56,18 +46,16 @@ class Policy(nn.Module):
             nn.ReLU(),
             pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=2)),
             nn.ReLU(),
-            # nn.Flatten(),
+            nn.Flatten(),
         )
-        self.flatten = nn.Flatten()
         self.map_embedding = torch.nn.Embedding(248, 4, dtype=torch.float32)
         self.poke_id = nn.Embedding(190, 6, dtype=torch.float32)
         self.poke_type = nn.Embedding(15, 6, dtype=torch.float32)
         self.pokemon_embedding = nn.Linear(in_features=38, out_features=16) # input: id, status, type1, type2, stats_level # 8+8+8+8+6 # output: 16?
-        self.activations = []
+        
         self.linear= nn.Sequential(
             pufferlib.pytorch.layer_init(nn.Linear(self.flat_size, hidden_size)),
             nn.ReLU(),)
-        self.counter = 0
 
     def encode_observations(self, observations):
         observation = pufferlib.pytorch.nativize_tensor(observations, self.dtype)
@@ -79,10 +67,11 @@ class Policy(nn.Module):
             screen = screens.permute(0, 3, 1, 2)
         if self.downsample > 1:
             screen = screens[:, :, ::self.downsample, ::self.downsample]
+        # poke_id_and_type_cat = self.pokemon_observation(observation)
         if self.extra_obs:
             cat = torch.cat(
             (
-                self.flatten(self.screen(screen.float() / 255.0)).squeeze(1),
+                self.screen(screen.float() / 255.0).squeeze(1),
                 self.map_embedding(observation["map_n"].long()).squeeze(1),
                 observation["flute"].float(),
                 observation["bike"].float(),
@@ -91,6 +80,7 @@ class Policy(nn.Module):
                 observation["silphco"].float(),
                 observation["snorlax_12"].float(),
                 observation["snorlax_16"].float(),
+                # poke_id_and_type_cat,
             ),
             dim=-1,
         )
@@ -100,8 +90,8 @@ class Policy(nn.Module):
         if self.add_boey_obs:
                 boey_obs = self.boey_obs(observation)
                 cat = torch.cat([cat, boey_obs], dim=-1)
-        self.counter += 1
         
+
         return self.linear(cat), None
 
     def decode_actions(self, flat_hidden, lookup, concat=None):
@@ -141,50 +131,6 @@ class Policy(nn.Module):
         embed_list = shit.tolist()
         return id_list, embed_list
     
-    def get_activations(self, observations):
-        # x = observations['screen']
-        observations = pufferlib.pytorch.nativize_tensor(observations, self.dtype)
-        screens = torch.cat([
-            observations['screen'], 
-            observations['fixed_window'],
-            ], dim=-1)
-        self.activations = []
-        def hook_fn(module, input, output):
-            self.activations.append(output)
-        hooks = []
-        for layer in self.screen:
-            hooks.append(layer.register_forward_hook(hook_fn))
-            input_tensor = screens.permute(0, 3, 1, 2)
-            # input_tensor = input_tensor[2:3]
-        _ = self.screen(input_tensor.float() / 255.0)
-        for hook in hooks:
-            hook.remove()
-        return self.activations
-
-    def plot_activations(self, activations, path):
-        layer_counter = 0
-        for i, activation in enumerate(activations):
-            num_filters = activation.shape[1]
-            grid_size = int(np.ceil(np.sqrt(num_filters)))
-            fig, axes = plt.subplots(grid_size, grid_size, figsize=(grid_size * 2, grid_size * 2))
-            axes = axes.flatten()
-            for filter_idx in range(num_filters):
-                axes[filter_idx].imshow(activation[0, filter_idx].detach().cpu().numpy(), cmap='viridis')
-                axes[filter_idx].axis('off') 
-
-            for filter_idx in range(num_filters, grid_size * grid_size):
-                axes[filter_idx].axis('off')
-            layer_counter += 1
-            dpi = 75 # ~ Gameboy dpi
-            folder = f'{path}/activations'
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-            plot_path = f'{folder}/step{self.counter}_layer{layer_counter}'
-            # plt.show()
-            plt.tight_layout()
-            plt.savefig(plot_path, dpi=dpi, bbox_inches='tight', pad_inches=0)
-            plt.close()
-
     def boey_obs(self, observation):
         if self.add_boey_obs:
             embedded_poke_move_ids = self.poke_move_ids_embedding(observation['poke_move_ids'].to(torch.int))

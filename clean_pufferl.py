@@ -157,20 +157,6 @@ def evaluate(data):
             data.vecenv.send(actions)
 
     with profile.eval_misc:
-        config = data.config
-        path = os.path.join(config.data_dir, config.exp_id)
-        if not os.path.exists(path):
-            os.makedirs(path)
-        if data.config.plot_activations and data.epoch % 200 == 0:
-                activations = policy.policy.get_activations(o_device)
-                policy.policy.plot_activations(activations, path)
-        if data.config.save_embeddings and data.epoch % 200 == 0:
-                columns, embeddings = data.policy.policy.get_embeds()
-                embedding_data = {"column": [columns], "embed": [embeddings]}
-                json_name = f'pokemon_embeddings_{data.epoch:06d}.json'
-                json_path = os.path.join(path, json_name)
-                with open(json_path, 'w') as f:
-                    json.dump(embedding_data, f, indent=4)
         if (hasattr(data.config, "swarm") and data.config.swarm and "required_count" in infos):
             max_event_count = 0
             new_state_key = ""
@@ -395,14 +381,16 @@ def train(data):
                     **{f'losses/{k}': v for k, v in data.losses.items()},
                     **{f'performance/{k}': v for k, v in data.profile},
                 })
-                # columns, embeddings = data.policy.policy.get_embeds()
-                # embedding_data = {"pokemon": [columns], "coords": [embeddings]}
-                # with open('pokemon_data.json', 'w') as f:
-                #     json.dump(embedding_data, f, indent=4)
+                columns, embeddings = data.policy.policy.get_embeds()
+                embedding_data = {"pokemon": [columns], "coords": [embeddings]}
+                with open('pokemon_data.json', 'w') as f:
+                    json.dump(embedding_data, f, indent=4)
 
         if data.epoch % config.checkpoint_interval == 0 or done_training:
             save_checkpoint(data)
-
+            # columns, embeddings = data.policy.policy.get_embeds()
+            # data.wandb.log({'embeddings': data.wandb.Table(columns=columns, data=embeddings)})
+            # data.msg = f'Checkpoint saved at update {data.epoch}'
 
         if done_training:
             close(data)

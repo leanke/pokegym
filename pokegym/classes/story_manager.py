@@ -1,10 +1,8 @@
-from pokegym import ram_map
 
-EVENT = 5
 
 class Story:
-    def __init__(self, game):
-        self.game = game
+    def __init__(self, events):
+        self.events = events
         self.tower = [142, 143, 144, 145, 146, 147, 148]
         self.hideout = [199, 200, 201, 202, 203, 135] # includes game corner
         self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
@@ -22,16 +20,17 @@ class Story:
         }
     @property
     def story_prog(self):
+        self.events.bit_check('')
         fossil = 0
-        if int(ram_map.read_bit(self.game, 0xD7F6, 6)) == 1 or int(ram_map.read_bit(self.game, 0xD7F6, 7)) == 1:
+        if self.events.bit_check('Got_Dome_Fossil') or self.events.bit_check('Got_Helix_Fossil'):
             fossil = 1
         return [
         int(fossil), # either dome or helix fossil
-        int(ram_map.read_bit(self.game, 0xD7F2, 7)), # left_bills_house_after_helping
-        int(ram_map.read_bit(self.game, 0xD803, 5)), # Walked_Out_Of_Dock
-        int(ram_map.read_bit(self.game, 0xD81B, 7)), # beat_rocket_hideout_giovanni
-        int(ram_map.read_bit(self.game, 0xD769, 7)), # rescued_mr_fuji_2
-        int(ram_map.read_bit(self.game, 0xD838, 7)), # Beat_Silph_Co_Giovanni
+        self.events.bit_check('left_bills_house_after_helping'), # left_bills_house_after_helping
+        self.events.bit_check('beat_rocket_hideout_giovanni'), # Walked_Out_Of_Dock
+        self.events.bit_check('beat_rocket_hideout_giovanni'), # beat_rocket_hideout_giovanni
+        self.events.bit_check('rescued_mr_fuji_2'), # rescued_mr_fuji_2
+        self.events.bit_check('Beat_Silph_Co_Giovanni'), # Beat_Silph_Co_Giovanni
         # int(ram_map.read_bit(self.game, 0xD76C, 0)), # got_poke_flute
         # int(ram_map.read_bit(self.game, 0xD75F, 0)), # got_bicycle
         # int(ram_map.read_bit(self.game, 0xD771, 1)), # got_bike_voucher
@@ -49,8 +48,4 @@ class Story:
                 low += self.story_maps[i]
         return high, low
     
-    def events(self):
-        return sum(self.story_prog)
-    
-    def update(self):
-        self.rew_sum = self.events()
+        
