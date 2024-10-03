@@ -88,7 +88,7 @@ class Environment:
         self.reset_count = 0
         self.full_reset_count = 0
         self.swarm_count = 0
-        self.events = Events(self.game)
+        self.events = Events(self.game, self.time)
         self.gym = Gym(self.events)
         # self.story = Story(self.game)
         self.map_check = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -196,8 +196,8 @@ class Environment:
         run_action_on_emulator(self.game, self.screen, ACTIONS[action], self.headless, fast_video=fast_video,)
         self.time += 1
 
-        if self.manual_reset:
-            self.manual_reset_rew()
+        # if self.manual_reset:
+        #     self.manual_reset_rew()
         if self.save_video:
             self.add_video_frame()
 
@@ -219,6 +219,7 @@ class Environment:
         done = self.time >= self.max_episode_steps
         
         if done:
+            print(f"Event Reward: {self.event_reward}")
             if self.save_video:
                 self.full_frame_writer.close()
             info = self.infos_dict()
@@ -301,6 +302,7 @@ class Environment:
         self.cut_counter = 0
         self.last_hp = 1.0
         self.last_party_size = 1
+        self.reward_sum_calc = 0
 
     def update_pokedex(self):
         for i in range(0xD30A - 0xD2F7):
@@ -508,7 +510,8 @@ class Environment:
         exploration_reward = self.expl_rew()
         level_reward = self.level_rew()
         healing_reward = self.heal_rew()
-        self.event_reward = self.events.sum_event_rewards()
+        self.event_reward = self.events.event_rewards()
+        # print(f"Event Reward: {self.event_reward}")
 
         self.cut_reward = self.cut * 10
         self.seen_pokemon_reward = sum(self.seen_pokemon) * self.reward_scale
@@ -522,8 +525,7 @@ class Environment:
         stats_menu = self.seen_stats_menu * 0.1
         bag_menu = self.seen_bag_menu * 0.1
         that_guy = (start_menu + pokemon_menu + stats_menu + bag_menu ) / 2
-        
-        return (
+        self.reward_sum_calc = (
             + level_reward
             + healing_reward
             + exploration_reward 
@@ -537,6 +539,7 @@ class Environment:
             + self.cut_tiles_reward
             + that_guy
         )
+        return self.reward_sum_calc
     
     def infos_dict(self):
         info = {
