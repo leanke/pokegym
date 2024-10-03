@@ -83,50 +83,18 @@ def run_action_on_emulator(pyboy, screen, action,
     '''Sends actions to PyBoy'''
     press, release = action.PRESS, action.RELEASE
     pyboy.send_input(press)
-    # print(action)
-    if action == Cut:
-        # print('action was cut---------------------------------')
-        pressing(pyboy)
-    else:
-        if headless or fast_video:
-            pyboy._rendering(False)
+    if headless or fast_video:
+        pyboy._rendering(False)
 
-        frames = []
-        for i in range(frame_skip):
-            if i == 8: # Release button after 8 frames
-                pyboy.send_input(release)
-            if not fast_video: # Save every frame
-                frames.append(screen.screen_ndarray())
-            if i == frame_skip - 1:
-                pyboy._rendering(True)
-            pyboy.tick()
-
-        if fast_video: # Save only the last frame
+    frames = []
+    for i in range(frame_skip):
+        if i == 8: # Release button after 8 frames
+            pyboy.send_input(release)
+        if not fast_video: # Save every frame
             frames.append(screen.screen_ndarray())
+        if i == frame_skip - 1:
+            pyboy._rendering(True)
+        pyboy.tick()
 
-def pressing(pyboy):
-    # pyboy.send_input(WindowEvent.PRESS_BUTTON_START)
-    for i in range(24):
-        if i == 8:
-            pyboy.send_input(WindowEvent.RELEASE_BUTTON_START)
-            # print('1')
-    pyboy.send_input(WindowEvent.PRESS_ARROW_DOWN)
-    for i in range(24):
-        if i == 8:
-            pyboy.send_input(WindowEvent.RELEASE_ARROW_DOWN)
-            # print('2')
-    pyboy.send_input(WindowEvent.PRESS_BUTTON_A)
-    for i in range(24):
-        if i == 8:
-            pyboy.send_input(WindowEvent.RELEASE_BUTTON_A)
-            # print('3')
-    pyboy.send_input(WindowEvent.PRESS_BUTTON_A)
-    for i in range(24):
-        if i == 8:
-            pyboy.send_input(WindowEvent.RELEASE_BUTTON_A)
-            # print('4')
-    pyboy.send_input(WindowEvent.PRESS_BUTTON_A)
-    for i in range(24):
-        if i == 8:
-            pyboy.send_input(WindowEvent.RELEASE_BUTTON_A)
-            # print('5')
+    if fast_video: # Save only the last frame
+        frames.append(screen.screen_ndarray())

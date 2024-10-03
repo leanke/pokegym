@@ -623,5 +623,7 @@ class Environment:
         healing_reward = self.total_healing
         return healing_reward
 
+
+
     def close(self):
         self.game.stop(False)

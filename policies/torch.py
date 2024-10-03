@@ -33,21 +33,31 @@ class Policy(nn.Module):
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
         self.extra_obs = env.unwrapped.env.extra_obs # env.unwrapped is GymnasiumPufferEnv
         if self.extra_obs:
-            self.flat_size = self.flat_size + 11 + 1664 + 1024 #+ 144
+            self.flat_size = self.flat_size + 11 # + 1664 + 1024 # thatguys screen net
         self.add_boey_obs = env.unwrapped.env.add_boey_obs
         if self.add_boey_obs:
             self.boey_nets()
             self.flat_size = self.flat_size + 150
-
-        self.screen= nn.Sequential(
-            pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 3, stride=2)),
+        # thatguy screen net update
+        # self.screen = nn.Sequential(
+        #     pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 3, stride=2)),
+        #     nn.ReLU(),
+        #     pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 3, stride=2)),
+        #     nn.ReLU(),
+        #     pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=2)),
+        #     nn.ReLU(),
+        #     nn.Flatten(),
+        # )
+        self.screen = nn.Sequential(
+            pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 8, stride=4)),
             nn.ReLU(),
-            pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 3, stride=2)),
+            pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
             nn.ReLU(),
-            pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=2)),
+            pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=1)),
             nn.ReLU(),
             nn.Flatten(),
         )
+
         self.map_embedding = torch.nn.Embedding(248, 4, dtype=torch.float32)
         self.poke_id = nn.Embedding(190, 6, dtype=torch.float32)
         self.poke_type = nn.Embedding(15, 6, dtype=torch.float32)
@@ -151,6 +161,7 @@ class Policy(nn.Module):
             opp_pokemon_features = pokemon_features[..., 6:, :]
             poke_opp_head = self.poke_opp_head(opp_pokemon_features)
             poke_opp_head = self.poke_opp_head_max_pool(poke_opp_head).squeeze(-2)
+            ####
             embedded_item_ids = self.item_ids_embedding(observation['item_ids'].to(torch.int))
             item_quantity = observation['item_quantity']
             item_concat = torch.cat([embedded_item_ids, item_quantity], dim=-1)
