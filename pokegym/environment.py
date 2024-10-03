@@ -52,6 +52,7 @@ class Environment:
         self.verbose = verbose
         
         # Configs
+        self.swarming = env_config['swarming']
         self.extra_obs = env_config['extra_obs']
         self.add_boey_obs = env_config['add_boey_obs']
         self.full_resets = env_config['full_resets']
@@ -221,11 +222,12 @@ class Environment:
         self.last_hp = 1.0
         self.last_party_size = 1
         self.required_events = self.get_req_events()
-        info |= {
-                "state": { tuple(sorted(list(self.required_events))): self.swarming_state()}, # .read()
-                "required_count": len(self.required_events),
-                "env_id": self.env_id,
-                }
+        if self.swarming:
+            info |= {
+                    "state": { tuple(sorted(list(self.required_events))): self.swarming_state()}, # .read()
+                    "required_count": len(self.required_events),
+                    "env_id": self.env_id,
+                    }
 
         return self._get_obs(), info
 
@@ -614,10 +616,42 @@ class Environment:
             + self.cut_tiles_reward
             + that_guy
         )
+
+    def level_rew(self):
+        party_size, party_levels = ram_map.party(self.game)
+        self.max_level_sum = max(self.max_level_sum, sum(party_levels))
+        # level_reward = sum(party_levels)/600 # test line
+        if self.max_level_sum < 15:
+            level_reward = 1 * self.max_level_sum
+        else:
+            level_reward = 15 + (self.max_level_sum - 15) / 4
+        return level_reward
+
+    def heal_rew(self):
+        party_size, party_levels = ram_map.party(self.game)
+        # Healing and death rewards
+        hp = ram_map.hp(self.game)
+        hp_delta = hp - self.last_hp
+        party_size_constant = party_size == self.last_party_size
+        if hp_delta > 0.5 and party_size_constant and not self.is_dead:
+            self.total_healing += hp_delta
+        if hp <= 0 and self.last_hp > 0:
+            self.death_count += 1
+            self.is_dead = True
+        elif hp > 0.01:  # TODO: Check if this matters
+            self.is_dead = False
+        self.last_hp = hp
+        self.last_party_size = party_size
+        death_reward = 0 # -0.08 * self.death_count  # -0.05
+        healing_reward = self.total_healing
+        return healing_reward
     
     def infos_dict(self):
-        required_events = self.get_req_events()
-        new_required_events = sum(required_events) - sum(self.required_events)
+        if self.swarming:
+            required_events = self.get_req_events()
+            new_required_events = sum(required_events) - sum(self.required_events)
+        else: 
+            new_required_events = 0
         if new_required_events:
             info = {
                 "Data": {
@@ -699,6 +733,7 @@ class Environment:
                 "required_count": len(required_events),
                 "env_id": self.env_id,
             }
+            self.required_events = required_events
         else:
             info = {
                 "Data": {
@@ -770,46 +805,9 @@ class Environment:
                     "local_expl_rew": len(self.seen_coords)/self.max_episode_steps,
                 },
             }
-        self.required_events = required_events
         return info
     
-    def level_rew(self):
-        party_size, party_levels = ram_map.party(self.game)
-        self.max_level_sum = max(self.max_level_sum, sum(party_levels))
-        # level_reward = sum(party_levels)/600 # test line
-        if self.max_level_sum < 15:
-            level_reward = 1 * self.max_level_sum
-        else:
-            level_reward = 15 + (self.max_level_sum - 15) / 4
-        return level_reward
 
-    def heal_rew(self):
-        party_size, party_levels = ram_map.party(self.game)
-        # Healing and death rewards
-        hp = ram_map.hp(self.game)
-        hp_delta = hp - self.last_hp
-        party_size_constant = party_size == self.last_party_size
-        if hp_delta > 0.5 and party_size_constant and not self.is_dead:
-            self.total_healing += hp_delta
-        if hp <= 0 and self.last_hp > 0:
-            self.death_count += 1
-            self.is_dead = True
-        elif hp > 0.01:  # TODO: Check if this matters
-            self.is_dead = False
-        self.last_hp = hp
-        self.last_party_size = party_size
-        death_reward = 0 # -0.08 * self.death_count  # -0.05
-        healing_reward = self.total_healing
-        return healing_reward
-
-    # def safari_game(self):
-    #     test = 0
-    #     #   in_safari_zone = EVENT * int(read_bit(game, 0xD790, 7))
-    #     # wNumSafariBalls:: ; da47
-    #     # wSafariSteps:: ; d70d
-    #     # ; starts at 502
-        
-    #     return test
 
     def close(self):
         self.game.stop(False)
