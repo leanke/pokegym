@@ -662,8 +662,9 @@ class Events:
         current_dict = self.pick_dict()
         pop_list = []
         for key, value in current_dict.items():
-            if value != 0:
-                self.reward_calc += self.calculate_reward(*value)
+            reward = self.calculate_reward(*value)
+            if reward != 0:
+                self.reward_calc += reward
                 pop_list.append(key)
         for key in pop_list:
             current_dict.pop(key)
