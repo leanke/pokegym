@@ -17,7 +17,7 @@ dependencies = [
     "einops",
     "opencv-python",
     "numpy",
-    "pyboy<2.0.0",
+    "pyboy==2.4.0",
     "pufferlib[cleanrl]>=1.0.0",
     "torch>=2.4",
     "triton>=3",

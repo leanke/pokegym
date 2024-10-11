@@ -894,7 +894,7 @@ class ObsWrapper(gym.Wrapper):
     
     def read_m(self, addr):
         if self.pyboy_version == 1:
-            return self.pyboy.get_memory_value(addr)
+            return self.pyboy.memory[addr]
         if self.pyboy_version == 2:
             return self.pyboy.memory[addr]
 

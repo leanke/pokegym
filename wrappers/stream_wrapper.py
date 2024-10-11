@@ -45,15 +45,15 @@ class StreamWrapper(gym.Wrapper):
 
     def step(self, action):
 
-        x_pos = self.emulator.get_memory_value(X_POS_ADDRESS)
-        y_pos = self.emulator.get_memory_value(Y_POS_ADDRESS)
-        map_n = self.emulator.get_memory_value(MAP_N_ADDRESS)
+        x_pos = self.emulator.memory[X_POS_ADDRESS]
+        y_pos = self.emulator.memory[Y_POS_ADDRESS]
+        map_n = self.emulator.memory[MAP_N_ADDRESS]
         hm = self.env.hm_count
         self.coord_list.append([x_pos, y_pos, map_n])
         self.cut = self.env.cut
 
-        poke0 = self.emulator.get_memory_value(POKE[0])
-        lvl0 = self.emulator.get_memory_value(LEVEL[0])
+        poke0 = self.emulator.memory[POKE[0]]
+        lvl0 = self.emulator.memory[LEVEL[0]]
         name_info6 = data.poke_dict.get(poke0, {})
         name0 = name_info6.get("name", "")
 

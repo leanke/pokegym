@@ -46,7 +46,7 @@ class Environment:
             raise FileNotFoundError("No ROM file found in the specified directory.")
         if state_path is None:
             state_path = STATE_PATH +  "Bulbasaur.state" # STATE_PATH + "has_pokedex_nballs.state"
-        self.game, self.screen = make_env(rom_path, headless, quiet, save_video=True, **kwargs)
+        self.game, self.screen = make_env(rom_path, headless, **kwargs)
         self.initial_states = [open_state_file(state_path)]
         self.headless = headless
         self.verbose = verbose
@@ -66,11 +66,11 @@ class Environment:
         self.countdown = env_config['countdown']
         self.inf_money = env_config['inf_money']
         self.save_video = env_config['save_video']
+        self.new_events = env_config['new_events']
         self.db_path = Path(f"{env_config['db_path']}")
         
 
-        R, C = self.screen.raw_screen_buffer_dims()
-        self.obs_size = (R // 2, C // 2, 1) # 72, 80, 1
+        self.obs_size = (72, 80, 1) # 72, 80, 1
         self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
         self.observation_space = spaces.Dict({})
         self.obs_space()
@@ -121,7 +121,7 @@ class Environment:
         )
 
     def render(self):
-        screen = np.expand_dims(self.screen.screen_ndarray()[:, :, 1], axis=-1)
+        screen = np.expand_dims(self.screen.ndarray[:, :, 1], axis=-1)
         screen = screen[::2, ::2]
         return screen
     
@@ -306,8 +306,8 @@ class Environment:
 
     def update_pokedex(self):
         for i in range(0xD30A - 0xD2F7):
-            caught_mem = self.game.get_memory_value(i + 0xD2F7)
-            seen_mem = self.game.get_memory_value(i + 0xD30A)
+            caught_mem = self.game.memory[i + 0xD2F7]
+            seen_mem = self.game.memory[i + 0xD30A]
             for j in range(8):
                 self.caught_pokemon[8*i + j] = 1 if caught_mem & (1 << j) else 0
                 self.seen_pokemon[8*i + j] = 1 if seen_mem & (1 << j) else 0  
@@ -315,9 +315,9 @@ class Environment:
     def update_moves_obtained(self):
         # Scan party
         for i in [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247]:
-            if self.game.get_memory_value(i) != 0:
+            if self.game.memory[i] != 0:
                 for j in range(4):
-                    move_id = self.game.get_memory_value(i + j + 8)
+                    move_id = self.game.memory[i + j + 8]
                     if move_id != 0:
                         if move_id == 15:
                             self.cut = 1
@@ -327,11 +327,11 @@ class Environment:
         # Scan current box (since the box doesn't auto increment in pokemon red)
         num_moves = 4
         box_struct_length = 25 * num_moves * 2
-        for i in range(self.game.get_memory_value(0xda80)):
+        for i in range(self.game.memory[0xda80]):
             offset = i*box_struct_length + 0xda96
-            if self.game.get_memory_value(offset) != 0:
+            if self.game.memory[offset] != 0:
                 for j in range(4):
-                    move_id = self.game.get_memory_value(offset + j + 8)
+                    move_id = self.game.memory[offset + j + 8]
                     if move_id != 0:
                         self.moves_obtained[move_id] = 1
 
@@ -463,7 +463,7 @@ class Environment:
         r, c, map_n = ram_map.position(self.game) # this is [y, x, z]
         if ram_map.mem_val(self.game, 0xD057) == 0: # is_in_battle if 1
             if self.cut == 1:
-                player_direction = self.game.get_memory_value(0xC109)
+                player_direction = self.game.memory[0xC109]
                 if player_direction == 0:  # down
                     coords = (c, r + 1, map_n)
                 if player_direction == 4:
@@ -474,12 +474,12 @@ class Environment:
                     coords = (c + 1, r, map_n)
                 self.cut_state.append(
                     (
-                        self.game.get_memory_value(0xCFC6),
-                        self.game.get_memory_value(0xCFCB),
-                        self.game.get_memory_value(0xCD6A),
-                        self.game.get_memory_value(0xD367),
-                        self.game.get_memory_value(0xD125),
-                        self.game.get_memory_value(0xCD3D),
+                        self.game.memory[0xCFC6],
+                        self.game.memory[0xCFCB],
+                        self.game.memory[0xCD6A],
+                        self.game.memory[0xD367],
+                        self.game.memory[0xD125],
+                        self.game.memory[0xCD3D],
                     )
                 )
                 if tuple(list(self.cut_state)[1:]) in CUT_SEQ:
@@ -510,7 +510,36 @@ class Environment:
         exploration_reward = self.expl_rew()
         level_reward = self.level_rew()
         healing_reward = self.heal_rew()
-        self.event_reward = self.events.event_rewards()
+        if self.new_events:
+            self.event_reward = self.events.event_rewards()
+        else:
+            silph = ram_map.silph_co(self.game)
+            rock_tunnel = ram_map.rock_tunnel(self.game)
+            ssanne = ram_map.ssanne(self.game)
+            mtmoon = ram_map.mtmoon(self.game)
+            routes = ram_map.routes(self.game)
+            misc = ram_map.misc(self.game)
+            snorlax = ram_map.snorlax(self.game)
+            hmtm = ram_map.hmtm(self.game)
+            bill = ram_map.bill(self.game)
+            oak = ram_map.oak(self.game)
+            towns = ram_map.towns(self.game)
+            lab = ram_map.lab(self.game)
+            mansion = ram_map.mansion(self.game)
+            safari = ram_map.safari(self.game)
+            dojo = ram_map.dojo(self.game)
+            hideout = ram_map.hideout(self.game)
+            tower = ram_map.poke_tower(self.game)
+            gym1 = ram_map.gym1(self.game)
+            gym2 = ram_map.gym2(self.game)
+            gym3 = ram_map.gym3(self.game)
+            gym4 = ram_map.gym4(self.game)
+            gym5 = ram_map.gym5(self.game)
+            gym6 = ram_map.gym6(self.game)
+            gym7 = ram_map.gym7(self.game)
+            gym8 = ram_map.gym8(self.game)
+            rival = ram_map.rival(self.game)
+            self.event_reward = sum([silph, rock_tunnel, ssanne, mtmoon, routes, misc, snorlax, hmtm, bill, oak, towns, lab, mansion, safari, dojo, hideout, tower, gym1, gym2, gym3, gym4, gym5, gym6, gym7, gym8, rival])
         # print(f"Event Reward: {self.event_reward}")
 
         self.cut_reward = self.cut * 10

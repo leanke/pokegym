@@ -565,7 +565,7 @@ class Events:
         }
 
     def read_bit(self, address, bit) -> bool:
-        return bin(256 + self.game.get_memory_value(address))[-bit - 1] == "1"
+        return bin(256 + self.game.memory[address])[-bit - 1] == "1"
 
     def calculate_reward(self, base_value, address, bit):
         return base_value * int(self.read_bit(address, bit))
