@@ -193,7 +193,7 @@ class Environment:
         return self._get_obs(), info
 
     def step(self, action, fast_video=True):
-        run_action_on_emulator(self.game, self.screen, ACTIONS[action], self.headless, fast_video=fast_video,)
+        run_action_on_emulator(self.game, self.screen, ACTIONS[action])
         self.time += 1
 
         # if self.manual_reset:
