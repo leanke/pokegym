@@ -60,12 +60,9 @@ def load_pyboy_state(pyboy, state):
     state.seek(0)
     pyboy.load_state(state)
 
-def run_action_on_emulator(pyboy, screen, action, frame_skip=24):
+def run_action_on_emulator(pyboy, action, frame_skip=24):
     '''Sends actions to PyBoy'''
     press, release = action.PRESS, action.RELEASE
-    frames = []
     pyboy.send_input(press)
     pyboy.send_input(release, delay=8)
-    pyboy.tick(frame_skip - 1, render=False)
-    pyboy.tick(1, render=True)
-    frames.append(screen.ndarray)
+    pyboy.tick(frame_skip - 1, render=True)

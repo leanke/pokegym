@@ -18,11 +18,10 @@ class Gym:
     @property
     def gym_prog(self): 
         gym_prog_list = []
-        gym_list = ['brock', 'misty', 'surge', 'erika', 'koga', 'sabrina', 'blaine', 'giovanni']
+        gym_list = ['EVENT_BEAT_BROCK', 'EVENT_BEAT_MISTY', 'EVENT_BEAT_LT_SURGE', 'EVENT_BEAT_ERIKA', 'EVENT_BEAT_KOGA', 'EVENT_BEAT_SABRINA', 'EVENT_BEAT_BLAINE', 'EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI']
         for i in gym_list:
-            gym_prog_list.append(self.events.bit_check(i))
+            gym_prog_list.append(self.events.get_event(i))
         return gym_prog_list
-
     
     def maps(self):
         high = []
