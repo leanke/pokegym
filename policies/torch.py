@@ -48,15 +48,25 @@ class Policy(nn.Module):
         if self.add_boey_obs:
             self.boey_nets()
             self.flat_size = self.flat_size + 150
-
-        self.screen= nn.Sequential(
-            pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 3, stride=2)),
-            nn.ReLU(),
-            pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 3, stride=2)),
-            nn.ReLU(),
-            pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=2)),
-            nn.ReLU(),
-        )
+        self.thatguys_cnn = env.unwrapped.env.thatguys_cnn
+        if self.thatguys_cnn:
+            self.screen= nn.Sequential(
+                pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 3, stride=2)),
+                nn.ReLU(),
+                pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 3, stride=2)),
+                nn.ReLU(),
+                pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=2)),
+                nn.ReLU(),
+            )
+        else:
+            self.screen = nn.Sequential(
+                pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 8, stride=4)),
+                nn.ReLU(),
+                pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
+                nn.ReLU(),
+                pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=1)),
+                nn.ReLU(),
+            )
         self.flatten = nn.Flatten()
         self.map_embedding = torch.nn.Embedding(248, 4, dtype=torch.float32)
         self.poke_id = nn.Embedding(190, 6, dtype=torch.float32)

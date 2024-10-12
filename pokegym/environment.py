@@ -67,6 +67,7 @@ class Environment:
         self.inf_money = env_config['inf_money']
         self.save_video = env_config['save_video']
         self.new_events = env_config['new_events']
+        self.thatguys_cnn = env_config['thatguys_cnn']
         self.db_path = Path(f"{env_config['db_path']}")
         
 
