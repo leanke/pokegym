@@ -439,8 +439,8 @@ def mansion(game):
     beat_mansion_4_trainer_0, beat_mansion_4_trainer_1, mansion_switch_on, beat_mansion_1_trainer_0])
 def safari(game):
   gave_gold_teeth = QUEST * int(read_bit(game, 0xD78E, 1))
-  safari_game_over = int(read_bit(game, 0xD790, 6))
-  in_safari_zone = int(read_bit(game, 0xD790, 7))
+  safari_game_over = EVENT * int(read_bit(game, 0xD790, 6))
+  in_safari_zone = EVENT * int(read_bit(game, 0xD790, 7))
   return sum([gave_gold_teeth, safari_game_over, in_safari_zone])
 def dojo(game):
   defeated_fighting_dojo = BAD * int(read_bit(game, 0xD7B1, 0))
@@ -485,7 +485,7 @@ def poke_tower(game):
   beat_pokemontower_5_trainer_1 = int(read_bit(game, 0xD767, 3))
   beat_pokemontower_5_trainer_2 = int(read_bit(game, 0xD767, 4))
   beat_pokemontower_5_trainer_3 = int(read_bit(game, 0xD767, 5))
-#   in_purified_zone = int(read_bit(game, 0xD767, 7)) # purified zone
+#   in_purified_zone = EVENT * int(read_bit(game, 0xD767, 7)) # purified zone
   beat_pokemontower_6_trainer_0 = int(read_bit(game, 0xD768, 1))
   beat_pokemontower_6_trainer_1 = int(read_bit(game, 0xD768, 2))
   beat_pokemontower_6_trainer_2 = int(read_bit(game, 0xD768, 3))
@@ -501,79 +501,79 @@ def poke_tower(game):
 def gym1(game):
    #gym 1 Pewter	
     one = GYM_LEADER * int(read_bit(game, 0xD755, 7))
-    g1_1 = GYM_int(read_bit(game, 0xD755, 2)) #	"0xD755-2": "Beat Pewter Gym Trainer 0",
+    g1_1 = GYM_TRAINER * int(read_bit(game, 0xD755, 2)) #	"0xD755-2": "Beat Pewter Gym Trainer 0",
     return sum([one, g1_1, ])
 def gym2(game):
    #gym 2 Cerulean	
     two = GYM_LEADER * int(read_bit(game, 0xD75E, 7))
-    g2_1 = GYM_int(read_bit(game, 0xD75E, 2)) #	"0xD75E-2": "Beat Cerulean Gym Trainer 0",
-    g2_2 = GYM_int(read_bit(game, 0xD75E, 3)) #	"0xD75E-3": "Beat Cerulean Gym Trainer 1",
+    g2_1 = GYM_TRAINER * int(read_bit(game, 0xD75E, 2)) #	"0xD75E-2": "Beat Cerulean Gym Trainer 0",
+    g2_2 = GYM_TRAINER * int(read_bit(game, 0xD75E, 3)) #	"0xD75E-3": "Beat Cerulean Gym Trainer 1",
     return sum([two, g2_1, g2_2, ])
 def gym3(game):
    #gym 3 Vermilion	
     lock_one = GYM_TASK * int(read_bit(game, 0xD773, 1)) # "0xD773-1": "1S Lock Opened",
     lock_two = GYM_TASK * int(read_bit(game, 0xD773, 0))# "0xD773-0": "2Nd Lock Opened",
     three = GYM_LEADER * int(read_bit(game, 0xD773, 7))
-    g3_1 = GYM_int(read_bit(game, 0xD773, 2)) #	"0xD773-2": "Beat Vermilion Gym Trainer 0",
-    g3_2 = GYM_int(read_bit(game, 0xD773, 3)) #	"0xD773-3": "Beat Vermilion Gym Trainer 1",
-    g3_3 = GYM_int(read_bit(game, 0xD773, 4)) #	"0xD773-4": "Beat Vermilion Gym Trainer 2",
+    g3_1 = GYM_TRAINER * int(read_bit(game, 0xD773, 2)) #	"0xD773-2": "Beat Vermilion Gym Trainer 0",
+    g3_2 = GYM_TRAINER * int(read_bit(game, 0xD773, 3)) #	"0xD773-3": "Beat Vermilion Gym Trainer 1",
+    g3_3 = GYM_TRAINER * int(read_bit(game, 0xD773, 4)) #	"0xD773-4": "Beat Vermilion Gym Trainer 2",
     return sum([three, g3_1, g3_2, g3_3, lock_one, lock_two])
 def gym4(game):
    #gym 4 Celadon	
     four = GYM_LEADER * int(read_bit(game, 0xD77C, 1))
-    g4_1 = GYM_int(read_bit(game, 0xD77C, 2)) #	"0xD77C-2": "Beat Celadon Gym Trainer 0",
-    g4_2 = GYM_int(read_bit(game, 0xD77C, 3)) #	"0xD77C-3": "Beat Celadon Gym Trainer 1",
-    g4_3 = GYM_int(read_bit(game, 0xD77C, 4)) #	"0xD77C-4": "Beat Celadon Gym Trainer 2",
-    g4_4 = GYM_int(read_bit(game, 0xD77C, 5)) #	"0xD77C-5": "Beat Celadon Gym Trainer 3",
-    g4_5 = GYM_int(read_bit(game, 0xD77C, 6)) #	"0xD77C-6": "Beat Celadon Gym Trainer 4",
-    g4_6 = GYM_int(read_bit(game, 0xD77C, 7)) #	"0xD77C-7": "Beat Celadon Gym Trainer 5",
-    g4_7 = GYM_int(read_bit(game, 0xD77D, 0)) #	"0xD77D-0": "Beat Celadon Gym Trainer 6",
+    g4_1 = GYM_TRAINER * int(read_bit(game, 0xD77C, 2)) #	"0xD77C-2": "Beat Celadon Gym Trainer 0",
+    g4_2 = GYM_TRAINER * int(read_bit(game, 0xD77C, 3)) #	"0xD77C-3": "Beat Celadon Gym Trainer 1",
+    g4_3 = GYM_TRAINER * int(read_bit(game, 0xD77C, 4)) #	"0xD77C-4": "Beat Celadon Gym Trainer 2",
+    g4_4 = GYM_TRAINER * int(read_bit(game, 0xD77C, 5)) #	"0xD77C-5": "Beat Celadon Gym Trainer 3",
+    g4_5 = GYM_TRAINER * int(read_bit(game, 0xD77C, 6)) #	"0xD77C-6": "Beat Celadon Gym Trainer 4",
+    g4_6 = GYM_TRAINER * int(read_bit(game, 0xD77C, 7)) #	"0xD77C-7": "Beat Celadon Gym Trainer 5",
+    g4_7 = GYM_TRAINER * int(read_bit(game, 0xD77D, 0)) #	"0xD77D-0": "Beat Celadon Gym Trainer 6",
     return sum([four, g4_1, g4_2, g4_3, g4_4, g4_5, g4_6, g4_7, ])
 def gym5(game):
    #gym 5 Fuchsia	
     five = GYM_LEADER * int(read_bit(game, 0xD792, 1))
-    g5_1 = GYM_int(read_bit(game, 0xD792, 2)) #	"0xD792-2": "Beat Fuchsia Gym Trainer 0",
-    g5_2 = GYM_int(read_bit(game, 0xD792, 3)) #	"0xD792-3": "Beat Fuchsia Gym Trainer 1",
-    g5_3 = GYM_int(read_bit(game, 0xD792, 4)) #	"0xD792-4": "Beat Fuchsia Gym Trainer 2",
-    g5_4 = GYM_int(read_bit(game, 0xD792, 5)) #	"0xD792-5": "Beat Fuchsia Gym Trainer 3",
-    g5_5 = GYM_int(read_bit(game, 0xD792, 6)) #	"0xD792-6": "Beat Fuchsia Gym Trainer 4",
-    g5_6 = GYM_int(read_bit(game, 0xD792, 7)) #	"0xD792-7": "Beat Fuchsia Gym Trainer 5",
+    g5_1 = GYM_TRAINER * int(read_bit(game, 0xD792, 2)) #	"0xD792-2": "Beat Fuchsia Gym Trainer 0",
+    g5_2 = GYM_TRAINER * int(read_bit(game, 0xD792, 3)) #	"0xD792-3": "Beat Fuchsia Gym Trainer 1",
+    g5_3 = GYM_TRAINER * int(read_bit(game, 0xD792, 4)) #	"0xD792-4": "Beat Fuchsia Gym Trainer 2",
+    g5_4 = GYM_TRAINER * int(read_bit(game, 0xD792, 5)) #	"0xD792-5": "Beat Fuchsia Gym Trainer 3",
+    g5_5 = GYM_TRAINER * int(read_bit(game, 0xD792, 6)) #	"0xD792-6": "Beat Fuchsia Gym Trainer 4",
+    g5_6 = GYM_TRAINER * int(read_bit(game, 0xD792, 7)) #	"0xD792-7": "Beat Fuchsia Gym Trainer 5",
     return sum([five, g5_1, g5_2, g5_3, g5_4, g5_5, g5_6, ])
 def gym6(game):
    #gym 6 Saffron	
     six = GYM_LEADER * int(read_bit(game, 0xD7B3, 1))
-    g6_1 = GYM_int(read_bit(game, 0xD7B3, 2)) #	"0xD7B3-2": "Beat Saffron Gym Trainer 0",
-    g6_2 = GYM_int(read_bit(game, 0xD7B3, 3)) #	"0xD7B3-3": "Beat Saffron Gym Trainer 1",
-    g6_3 = GYM_int(read_bit(game, 0xD7B3, 4)) #	"0xD7B3-4": "Beat Saffron Gym Trainer 2",
-    g6_4 = GYM_int(read_bit(game, 0xD7B3, 5)) #	"0xD7B3-5": "Beat Saffron Gym Trainer 3",
-    g6_5 = GYM_int(read_bit(game, 0xD7B3, 6)) #	"0xD7B3-6": "Beat Saffron Gym Trainer 4",
-    g6_6 = GYM_int(read_bit(game, 0xD7B3, 7)) #	"0xD7B3-7": "Beat Saffron Gym Trainer 5",
-    g6_7 = GYM_int(read_bit(game, 0xD7B4, 0)) #	"0xD7B4-0": "Beat Saffron Gym Trainer 6",
+    g6_1 = GYM_TRAINER * int(read_bit(game, 0xD7B3, 2)) #	"0xD7B3-2": "Beat Saffron Gym Trainer 0",
+    g6_2 = GYM_TRAINER * int(read_bit(game, 0xD7B3, 3)) #	"0xD7B3-3": "Beat Saffron Gym Trainer 1",
+    g6_3 = GYM_TRAINER * int(read_bit(game, 0xD7B3, 4)) #	"0xD7B3-4": "Beat Saffron Gym Trainer 2",
+    g6_4 = GYM_TRAINER * int(read_bit(game, 0xD7B3, 5)) #	"0xD7B3-5": "Beat Saffron Gym Trainer 3",
+    g6_5 = GYM_TRAINER * int(read_bit(game, 0xD7B3, 6)) #	"0xD7B3-6": "Beat Saffron Gym Trainer 4",
+    g6_6 = GYM_TRAINER * int(read_bit(game, 0xD7B3, 7)) #	"0xD7B3-7": "Beat Saffron Gym Trainer 5",
+    g6_7 = GYM_TRAINER * int(read_bit(game, 0xD7B4, 0)) #	"0xD7B4-0": "Beat Saffron Gym Trainer 6",
     return sum([six, g6_1, g6_2, g6_3, g6_4, g6_5, g6_6, g6_7, ])
 def gym7(game):
    #gym 7 Cinnabar	
     seven = GYM_LEADER * int(read_bit(game, 0xD79A, 1))
-    g7_1 = GYM_int(read_bit(game, 0xD79A, 2)) #	"0xD79A-2": "Beat Cinnabar Gym Trainer 0",
-    g7_2 = GYM_int(read_bit(game, 0xD79A, 3)) #	"0xD79A-3": "Beat Cinnabar Gym Trainer 1",
-    g7_3 = GYM_int(read_bit(game, 0xD79A, 4)) #	"0xD79A-4": "Beat Cinnabar Gym Trainer 2",
-    g7_4 = GYM_int(read_bit(game, 0xD79A, 5)) #	"0xD79A-5": "Beat Cinnabar Gym Trainer 3",
-    g7_5 = GYM_int(read_bit(game, 0xD79A, 6)) #	"0xD79A-6": "Beat Cinnabar Gym Trainer 4",
-    g7_6 = GYM_int(read_bit(game, 0xD79A, 7)) #	"0xD79A-7": "Beat Cinnabar Gym Trainer 5",
-    g7_7 = GYM_int(read_bit(game, 0xD79B, 0)) #	"0xD79B-0": "Beat Cinnabar Gym Trainer 6",
+    g7_1 = GYM_TRAINER * int(read_bit(game, 0xD79A, 2)) #	"0xD79A-2": "Beat Cinnabar Gym Trainer 0",
+    g7_2 = GYM_TRAINER * int(read_bit(game, 0xD79A, 3)) #	"0xD79A-3": "Beat Cinnabar Gym Trainer 1",
+    g7_3 = GYM_TRAINER * int(read_bit(game, 0xD79A, 4)) #	"0xD79A-4": "Beat Cinnabar Gym Trainer 2",
+    g7_4 = GYM_TRAINER * int(read_bit(game, 0xD79A, 5)) #	"0xD79A-5": "Beat Cinnabar Gym Trainer 3",
+    g7_5 = GYM_TRAINER * int(read_bit(game, 0xD79A, 6)) #	"0xD79A-6": "Beat Cinnabar Gym Trainer 4",
+    g7_6 = GYM_TRAINER * int(read_bit(game, 0xD79A, 7)) #	"0xD79A-7": "Beat Cinnabar Gym Trainer 5",
+    g7_7 = GYM_TRAINER * int(read_bit(game, 0xD79B, 0)) #	"0xD79B-0": "Beat Cinnabar Gym Trainer 6",
     return sum([seven, g7_1, g7_2, g7_3, g7_4, g7_5, g7_6, g7_7, ])
 def gym8(game):
    #gym 8 Viridian	
   # "0xD74C-0": "Viridian Gym Open",
   gym_door = GYM_TASK * int(read_bit(game, 0xD74C, 0))
   eight = GYM_LEADER * int(read_bit(game, 0xD751, 1))
-  g8_1 = GYM_int(read_bit(game, 0xD751, 2)) #	"0xD751-2": "Beat Viridian Gym Trainer 0",
-  g8_2 = GYM_int(read_bit(game, 0xD751, 3)) #	"0xD751-3": "Beat Viridian Gym Trainer 1",
-  g8_3 = GYM_int(read_bit(game, 0xD751, 4)) #	"0xD751-4": "Beat Viridian Gym Trainer 2",
-  g8_4 = GYM_int(read_bit(game, 0xD751, 5)) #	"0xD751-5": "Beat Viridian Gym Trainer 3",
-  g8_5 = GYM_int(read_bit(game, 0xD751, 6)) #	"0xD751-6": "Beat Viridian Gym Trainer 4",
-  g8_6 = GYM_int(read_bit(game, 0xD751, 7)) #	"0xD751-7": "Beat Viridian Gym Trainer 5",
-  g8_7 = GYM_int(read_bit(game, 0xD752, 0)) #	"0xD752-0": "Beat Viridian Gym Trainer 6",
-  g8_8 = GYM_int(read_bit(game, 0xD752, 1)) #	"0xD752-1": "Beat Viridian Gym Trainer 7",
+  g8_1 = GYM_TRAINER * int(read_bit(game, 0xD751, 2)) #	"0xD751-2": "Beat Viridian Gym Trainer 0",
+  g8_2 = GYM_TRAINER * int(read_bit(game, 0xD751, 3)) #	"0xD751-3": "Beat Viridian Gym Trainer 1",
+  g8_3 = GYM_TRAINER * int(read_bit(game, 0xD751, 4)) #	"0xD751-4": "Beat Viridian Gym Trainer 2",
+  g8_4 = GYM_TRAINER * int(read_bit(game, 0xD751, 5)) #	"0xD751-5": "Beat Viridian Gym Trainer 3",
+  g8_5 = GYM_TRAINER * int(read_bit(game, 0xD751, 6)) #	"0xD751-6": "Beat Viridian Gym Trainer 4",
+  g8_6 = GYM_TRAINER * int(read_bit(game, 0xD751, 7)) #	"0xD751-7": "Beat Viridian Gym Trainer 5",
+  g8_7 = GYM_TRAINER * int(read_bit(game, 0xD752, 0)) #	"0xD752-0": "Beat Viridian Gym Trainer 6",
+  g8_8 = GYM_TRAINER * int(read_bit(game, 0xD752, 1)) #	"0xD752-1": "Beat Viridian Gym Trainer 7",
   return sum([eight, g8_1, g8_2, g8_3, g8_4, g8_5, g8_6, g8_7, g8_8, gym_door])
 def rival(game):
   one = RIVAL * int(read_bit(game, 0xD74B, 3))
