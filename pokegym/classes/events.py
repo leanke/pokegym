@@ -2572,16 +2572,14 @@ class EventFlagsBits(LittleEndianStructure):
         ("EVENT_9FF", c_uint8, 1),
     ]
 
-
 class EventFlags(Union):
     _fields_ = [("b", EventFlagsBits), ("asbytes", c_uint8 * 320)]
 
     def __init__(self, emu: PyBoy):
         super().__init__()
         self.emu = emu
-        self.asbytes = (c_uint8 * 320)(
-            *emu.memory[EVENT_FLAGS_START : EVENT_FLAGS_START + EVENTS_FLAGS_LENGTH]
-        )
+        self.asbytes = (c_uint8 * 320)(*emu.memory[EVENT_FLAGS_START : EVENT_FLAGS_START + EVENTS_FLAGS_LENGTH])
+        
 
     def get_event(self, event_name: str) -> int:
         """
@@ -2599,9 +2597,9 @@ class EventFlags(Union):
         self.emu.memory[addr] = (self.emu.memory[addr] & ~mask) | mask
         setattr(self.b, event_name, int(value))
 
-
 EVENTS = {
-    event for event, _, _ in EventFlagsBits._fields_ if not re.search("EVENT_[0-9,A-F]{3}$", event)
+    event for event, _, _ in EventFlagsBits._fields_ 
+    if not re.search(r"EVENT_[0-9,A-F]{3}$|EVENT_BOUGHT_MUSEUM_TICKET|EVENT_IN_PURIFIED_ZONE", event)
 }
 
 

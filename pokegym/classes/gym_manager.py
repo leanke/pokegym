@@ -4,8 +4,8 @@ class Gym:
     def __init__(self, events):
         self.events = events
         self.gym_maps = {
-            0: [54, 2], # pewter2
-            1: [65, 3], # Cerulean3
+            0: [166, 8], # [54, 2], # pewter2
+            1: [166, 8], # [65, 3], # Cerulean3
             2: [92, 5, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104], # vermilion5
             3: [134, 6], # celadon6
             4: [157, 7], # Fuchsia7

@@ -64,9 +64,12 @@ def create(config, vecenv, policy, async_config, optimizer=None, wandb=None):
     # breakpoint()
     optimizer = torch.optim.Adam(policy.parameters(),
         lr=config.learning_rate, eps=1e-5)
-    
-    env_send_queues = async_config['send_queues']
-    env_recv_queues = async_config['recv_queues']
+    if async_config is not None:
+        env_send_queues = async_config['send_queues']
+        env_recv_queues = async_config['recv_queues']
+    else:
+        env_send_queues = None
+        env_recv_queues = None
     states: dict = defaultdict(partial(deque, maxlen=1))
     event_tracker: dict = {}
     max_event_count: int = 0

@@ -25,15 +25,9 @@ class StreamWrapper(gym.Wrapper):
         self.stream_metadata = stream_metadata
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-        self.websocket = self.loop.run_until_complete(
-                self.establish_wc_connection()
-        )
+        self.websocket = self.loop.run_until_complete(self.establish_wc_connection())
         self.upload_interval = 500
         self.steam_step_counter = 0
-        self.env = env
-        self.coord_list = []
-        self.leanke = {}
-        self.cut = 0
 
         if hasattr(env, "pyboy"):
             self.emulator = env.pyboy
@@ -42,28 +36,33 @@ class StreamWrapper(gym.Wrapper):
         else:
             raise Exception("Could not find emulator!")
 
+        self.env = env
+        self.coord_list = []
+        
+
 
     def step(self, action):
 
-        x_pos = self.emulator.memory[X_POS_ADDRESS]
-        y_pos = self.emulator.memory[Y_POS_ADDRESS]
-        map_n = self.emulator.memory[MAP_N_ADDRESS]
-        hm = self.env.hm_count
+        # x_pos = self.emulator.memory[X_POS_ADDRESS]
+        # y_pos = self.emulator.memory[Y_POS_ADDRESS]
+        # map_n = self.emulator.memory[MAP_N_ADDRESS]
+        self.coords = self.env.coords
+        x_pos, y_pos, map_n = self.coords
         self.coord_list.append([x_pos, y_pos, map_n])
-        self.cut = self.env.cut
-
-        poke0 = self.emulator.memory[POKE[0]]
-        lvl0 = self.emulator.memory[LEVEL[0]]
-        name_info6 = data.poke_dict.get(poke0, {})
-        name0 = name_info6.get("name", "")
-
+        
         if self.steam_step_counter >= self.upload_interval:
+            self.cut = self.env.cut
+            self.hm = self.env.hm_count
+            poke0 = self.emulator.memory[POKE[0]]
+            lvl0 = self.emulator.memory[LEVEL[0]]
+            name_info6 = data.poke_dict.get(poke0, {})
+            name0 = name_info6.get("name", "")
 
             if self.cut >= 1:
                 self.stream_metadata['color'] = GREEN
-            elif hm >= 1 and self.cut == 0:
+            elif self.hm >= 1 and self.cut == 0:
                 self.stream_metadata['color'] = YELLOW
-            elif hm == 0 and self.cut == 0:
+            elif self.hm == 0 and self.cut == 0:
                 self.stream_metadata['color'] = RED
             if int(ram_map.read_bit(self.emulator, 0xD76C, 0)) == 1:
                 self.stream_metadata['color'] = PURPLE

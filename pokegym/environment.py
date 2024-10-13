@@ -24,7 +24,7 @@ from pokegym.pyboy_binding import (
 from pokegym import data, ram_map
 from .classes.gym_manager import Gym
 from .classes.story_manager import Story
-from .classes.events import EventFlags
+from .classes.events import (EventFlags, EVENTS)
 
 
 STATE_PATH = __file__.rstrip("environment.py") + "States/"
@@ -97,7 +97,11 @@ class Environment:
         self.pokehideout = [199, 200, 201, 202, 203, 135] # , 135
         self.silphco = [181, 207, 208, 209, 210, 211, 212, 213, 233, 234, 235, 236]
         self.safari = [156, 217, 218, 219, 220, 221, 222, 223, 224, 225] # 156 - safari gate2, 21: 'Safari Zone (Rest house 1)', 222: 'Safari Zone (Prize house)', 223: 'Safari Zone (Rest house 2)', 224: 'Safari Zone (Rest house 3)', 225: 'Safari Zone (Rest house 4)'
-        
+        r, c, map_n = ram_map.position(self.game)
+        self.coords = (c, r, map_n)
+        self.hm_count = 0
+        self.cut = 0
+
     def get_fixed_window(self, arr, y, x, window_size):
         height, width, _ = arr.shape
         h_w, w_w = window_size[0], window_size[1]
@@ -149,7 +153,7 @@ class Environment:
                 })
 
     def _get_obs(self):
-        r, c, map_n = ram_map.position(self.game)
+        c, r, map_n = self.coords
         mmap = self.screen_memory[map_n]
         if 0 <= r <= 254 and 0 <= c <= 254:
             mmap[r, c] = 255
@@ -306,6 +310,8 @@ class Environment:
         self.last_party_size = 1
         self.reward_sum_calc = 0
         self.events = EventFlags(self.game)
+        r, c, map_n = ram_map.position(self.game)
+        self.coords = (c, r, map_n)
 
     def update_pokedex(self):
         for i in range(0xD30A - 0xD2F7):
@@ -399,6 +405,7 @@ class Environment:
     def expl_rew(self):
         r, c, map_n = ram_map.position(self.game) # this is [y, x, z]
         self.seen_coords.add((r, c, map_n))
+        self.coords = (c, r, map_n)
         high_gym_maps, low_gym_maps = self.gym.maps()
 
         if map_n in high_gym_maps:
@@ -463,7 +470,7 @@ class Environment:
         # Cut check
         # 0xCFC6 - wTileInFrontOfPlayer
         # 0xCFCB - wUpdateSpritesEnabled
-        r, c, map_n = ram_map.position(self.game) # this is [y, x, z]
+        c, r, map_n = self.coords # this is [x, y, z]
         if ram_map.mem_val(self.game, 0xD057) == 0: # is_in_battle if 1
             if self.cut == 1:
                 player_direction = self.game.memory[0xC109]
@@ -513,34 +520,39 @@ class Environment:
         exploration_reward = self.expl_rew()
         level_reward = self.level_rew()
         healing_reward = self.heal_rew()
-        silph = ram_map.silph_co(self.game)
-        rock_tunnel = ram_map.rock_tunnel(self.game)
-        ssanne = ram_map.ssanne(self.game)
-        mtmoon = ram_map.mtmoon(self.game)
-        routes = ram_map.routes(self.game)
-        misc = ram_map.misc(self.game)
-        snorlax = ram_map.snorlax(self.game)
-        hmtm = ram_map.hmtm(self.game)
-        bill = ram_map.bill(self.game)
-        oak = ram_map.oak(self.game)
-        towns = ram_map.towns(self.game)
-        lab = ram_map.lab(self.game)
-        mansion = ram_map.mansion(self.game)
-        safari = ram_map.safari(self.game)
-        dojo = ram_map.dojo(self.game)
-        hideout = ram_map.hideout(self.game)
-        tower = ram_map.poke_tower(self.game)
-        gym1 = ram_map.gym1(self.game)
-        gym2 = ram_map.gym2(self.game)
-        gym3 = ram_map.gym3(self.game)
-        gym4 = ram_map.gym4(self.game)
-        gym5 = ram_map.gym5(self.game)
-        gym6 = ram_map.gym6(self.game)
-        gym7 = ram_map.gym7(self.game)
-        gym8 = ram_map.gym8(self.game)
-        rival = ram_map.rival(self.game)
-        self.event_reward = sum([silph, rock_tunnel, ssanne, mtmoon, routes, misc, snorlax, hmtm, bill, oak, towns, lab, mansion, safari, dojo, hideout, tower, gym1, gym2, gym3, gym4, gym5, gym6, gym7, gym8, rival])
-        # print(f"Event Reward: {self.event_reward}")
+        if self.new_events:
+            if self.time % 2 == 0:
+                events = [self.events.get_event(event) for event in EVENTS]
+                self.event_reward = sum(events)*3
+        else:
+            silph = ram_map.silph_co(self.game)
+            rock_tunnel = ram_map.rock_tunnel(self.game)
+            ssanne = ram_map.ssanne(self.game)
+            mtmoon = ram_map.mtmoon(self.game)
+            routes = ram_map.routes(self.game)
+            misc = ram_map.misc(self.game)
+            snorlax = ram_map.snorlax(self.game)
+            hmtm = ram_map.hmtm(self.game)
+            bill = ram_map.bill(self.game)
+            oak = ram_map.oak(self.game)
+            towns = ram_map.towns(self.game)
+            lab = ram_map.lab(self.game)
+            mansion = ram_map.mansion(self.game)
+            safari = ram_map.safari(self.game)
+            dojo = ram_map.dojo(self.game)
+            hideout = ram_map.hideout(self.game)
+            tower = ram_map.poke_tower(self.game)
+            gym1 = ram_map.gym1(self.game)
+            gym2 = ram_map.gym2(self.game)
+            gym3 = ram_map.gym3(self.game)
+            gym4 = ram_map.gym4(self.game)
+            gym5 = ram_map.gym5(self.game)
+            gym6 = ram_map.gym6(self.game)
+            gym7 = ram_map.gym7(self.game)
+            gym8 = ram_map.gym8(self.game)
+            rival = ram_map.rival(self.game)
+            self.event_reward = sum([silph, rock_tunnel, ssanne, mtmoon, routes, misc, snorlax, hmtm, bill, oak, towns, lab, mansion, safari, dojo, hideout, tower, gym1, gym2, gym3, gym4, gym5, gym6, gym7, gym8, rival])
+            # print(f"Event Reward: {self.event_reward}")
 
         self.cut_reward = self.cut * 10
         self.seen_pokemon_reward = sum(self.seen_pokemon) * self.reward_scale

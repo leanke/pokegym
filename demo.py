@@ -105,7 +105,7 @@ def env_creator(train_config: List[Dict[str, Any]], wrappers: List[Dict[str, Any
             env = AsyncWrapper(env, async_config['send_queues'], async_config['recv_queues'])
         if wrappers['stream_wrapper']:
             env = StreamWrapper(env, stream_metadata = {"user": f"{wrappers['stream_wrapper_name']}\n",})
-        env = RenderWrapper(env)
+        # env = RenderWrapper(env)
         # env = pufferlib.postprocess.EpisodeStats(env)
         return pufferlib.emulation.GymnasiumPufferEnv(env=env)
     return make
@@ -170,9 +170,12 @@ if __name__ == '__main__':
 
     import importlib
     num_queues = (args['train']['num_envs']+1)
-    env_send_queues = [Queue() for _ in range(args['train']['num_envs'] + 1)] #  + args['train']['num_workers']
-    env_recv_queues = [Queue() for _ in range(args['train']['num_envs'] + 1)]
-    async_config = {"send_queues": env_send_queues,"recv_queues": env_recv_queues}
+    if args['wrappers']['swarming_wrapper']:
+        env_send_queues = [Queue() for _ in range(args['train']['num_envs'] + 1)] #  + args['train']['num_workers']
+        env_recv_queues = [Queue() for _ in range(args['train']['num_envs'] + 1)]
+        async_config = {"send_queues": env_send_queues,"recv_queues": env_recv_queues}
+    else:
+        async_config = None
     env_module = importlib.import_module(f'policies')
     make_env = env_creator(args['train'], args['wrappers'], args['env_config'], async_config)
     policy_cls = getattr(env_module, args['base']['policy_name'])
