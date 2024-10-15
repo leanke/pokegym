@@ -406,45 +406,45 @@ class Environment:
         r, c, map_n = ram_map.position(self.game) # this is [y, x, z]
         self.seen_coords.add((r, c, map_n))
         self.coords = (c, r, map_n)
-        high_gym_maps, low_gym_maps = self.gym.maps()
+        # # high_gym_maps, low_gym_maps = self.gym.maps()
 
-        if map_n in high_gym_maps:
-            exploration_reward = (0.03 * len(self.seen_coords)) 
-        else:
-            if not self.events.get_event('EVENT_FOUND_ROCKET_HIDEOUT'):
-                if map_n in self.poketower:
-                    exploration_reward = 0
-                elif map_n == 135:
-                    exploration_reward = (0.03 * len(self.seen_coords)) 
-                else:
-                    exploration_reward = (0.02 * len(self.seen_coords))
-            elif not self.events.get_event('EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI') and self.events.get_event('EVENT_FOUND_ROCKET_HIDEOUT'):
-                if map_n in self.pokehideout:
-                    exploration_reward = (0.03 * len(self.seen_coords))
-                else:
-                    exploration_reward = (0.02 * len(self.seen_coords))
-            elif not self.events.get_event('EVENT_RESCUED_MR_FUJI') and self.events.get_event('EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI'):
-                if map_n in self.poketower:
-                    exploration_reward = (0.03 * len(self.seen_coords))
-                else:
-                    exploration_reward = (0.02 * len(self.seen_coords))
-            elif not self.events.get_event('EVENT_GOT_POKE_FLUTE') and self.events.get_event('EVENT_RESCUED_MR_FUJI'):
-                if map_n == 149:
-                    exploration_reward = (0.03 * len(self.seen_coords))
-                else:
-                    exploration_reward = (0.02 * len(self.seen_coords))
-            elif not self.events.get_event('EVENT_BEAT_SILPH_CO_GIOVANNI') and self.events.get_event('EVENT_GOT_POKE_FLUTE'):
-                if map_n in self.silphco:
-                    exploration_reward = (0.03 * len(self.seen_coords))
-                else:
-                    exploration_reward = (0.02 * len(self.seen_coords))
-            elif not self.events.get_event('EVENT_GOT_HM03') or not self.events.get_event('EVENT_GAVE_GOLD_TEETH'):
-                if map_n in self.safari or map_n == 7 or map_n == 155:
-                    exploration_reward = (0.03 * len(self.seen_coords))
-                else:
-                    exploration_reward = (0.02 * len(self.seen_coords)) 
+        # # if map_n in high_gym_maps:
+        # #     exploration_reward = (0.03 * len(self.seen_coords)) 
+        # else:
+        if not self.events.get_event('EVENT_FOUND_ROCKET_HIDEOUT'):
+            if map_n in self.poketower:
+                exploration_reward = 0
+            elif map_n == 135:
+                exploration_reward = (0.03 * len(self.seen_coords)) 
             else:
                 exploration_reward = (0.02 * len(self.seen_coords))
+        elif not self.events.get_event('EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI') and self.events.get_event('EVENT_FOUND_ROCKET_HIDEOUT'):
+            if map_n in self.pokehideout:
+                exploration_reward = (0.03 * len(self.seen_coords))
+            else:
+                exploration_reward = (0.02 * len(self.seen_coords))
+        elif not self.events.get_event('EVENT_RESCUED_MR_FUJI') and self.events.get_event('EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI'):
+            if map_n in self.poketower:
+                exploration_reward = (0.03 * len(self.seen_coords))
+            else:
+                exploration_reward = (0.02 * len(self.seen_coords))
+        elif not self.events.get_event('EVENT_GOT_POKE_FLUTE') and self.events.get_event('EVENT_RESCUED_MR_FUJI'):
+            if map_n == 149:
+                exploration_reward = (0.03 * len(self.seen_coords))
+            else:
+                exploration_reward = (0.02 * len(self.seen_coords))
+        elif not self.events.get_event('EVENT_BEAT_SILPH_CO_GIOVANNI') and self.events.get_event('EVENT_GOT_POKE_FLUTE'):
+            if map_n in self.silphco:
+                exploration_reward = (0.03 * len(self.seen_coords))
+            else:
+                exploration_reward = (0.02 * len(self.seen_coords))
+        elif not self.events.get_event('EVENT_GOT_HM03') or not self.events.get_event('EVENT_GAVE_GOLD_TEETH'):
+            if map_n in self.safari or map_n == 7 or map_n == 155:
+                exploration_reward = (0.03 * len(self.seen_coords))
+            else:
+                exploration_reward = (0.02 * len(self.seen_coords)) 
+        else:
+            exploration_reward = (0.02 * len(self.seen_coords))
         
         
         # # Story
@@ -525,33 +525,34 @@ class Environment:
                 events = [self.events.get_event(event) for event in EVENTS]
                 self.event_reward = sum(events)*3
         else:
-            silph = ram_map.silph_co(self.game)
-            rock_tunnel = ram_map.rock_tunnel(self.game)
-            ssanne = ram_map.ssanne(self.game)
-            mtmoon = ram_map.mtmoon(self.game)
-            routes = ram_map.routes(self.game)
-            misc = ram_map.misc(self.game)
-            snorlax = ram_map.snorlax(self.game)
-            hmtm = ram_map.hmtm(self.game)
-            bill = ram_map.bill(self.game)
-            oak = ram_map.oak(self.game)
-            towns = ram_map.towns(self.game)
-            lab = ram_map.lab(self.game)
-            mansion = ram_map.mansion(self.game)
-            safari = ram_map.safari(self.game)
-            dojo = ram_map.dojo(self.game)
-            hideout = ram_map.hideout(self.game)
-            tower = ram_map.poke_tower(self.game)
-            gym1 = ram_map.gym1(self.game)
-            gym2 = ram_map.gym2(self.game)
-            gym3 = ram_map.gym3(self.game)
-            gym4 = ram_map.gym4(self.game)
-            gym5 = ram_map.gym5(self.game)
-            gym6 = ram_map.gym6(self.game)
-            gym7 = ram_map.gym7(self.game)
-            gym8 = ram_map.gym8(self.game)
-            rival = ram_map.rival(self.game)
-            self.event_reward = sum([silph, rock_tunnel, ssanne, mtmoon, routes, misc, snorlax, hmtm, bill, oak, towns, lab, mansion, safari, dojo, hideout, tower, gym1, gym2, gym3, gym4, gym5, gym6, gym7, gym8, rival])
+            if self.time % 2 == 0:
+                silph = ram_map.silph_co(self.game)
+                rock_tunnel = ram_map.rock_tunnel(self.game)
+                ssanne = ram_map.ssanne(self.game)
+                mtmoon = ram_map.mtmoon(self.game)
+                routes = ram_map.routes(self.game)
+                misc = ram_map.misc(self.game)
+                snorlax = ram_map.snorlax(self.game)
+                hmtm = ram_map.hmtm(self.game)
+                bill = ram_map.bill(self.game)
+                oak = ram_map.oak(self.game)
+                towns = ram_map.towns(self.game)
+                lab = ram_map.lab(self.game)
+                mansion = ram_map.mansion(self.game)
+                safari = ram_map.safari(self.game)
+                dojo = ram_map.dojo(self.game)
+                hideout = ram_map.hideout(self.game)
+                tower = ram_map.poke_tower(self.game)
+                gym1 = ram_map.gym1(self.game)
+                gym2 = ram_map.gym2(self.game)
+                gym3 = ram_map.gym3(self.game)
+                gym4 = ram_map.gym4(self.game)
+                gym5 = ram_map.gym5(self.game)
+                gym6 = ram_map.gym6(self.game)
+                gym7 = ram_map.gym7(self.game)
+                gym8 = ram_map.gym8(self.game)
+                rival = ram_map.rival(self.game)
+                self.event_reward = sum([silph, rock_tunnel, ssanne, mtmoon, routes, misc, snorlax, hmtm, bill, oak, towns, lab, mansion, safari, dojo, hideout, tower, gym1, gym2, gym3, gym4, gym5, gym6, gym7, gym8, rival])
             # print(f"Event Reward: {self.event_reward}")
 
         self.cut_reward = self.cut * 10
@@ -602,29 +603,29 @@ class Environment:
                 "beat_snorlax_16": self.events.get_event('EVENT_BEAT_ROUTE16_SNORLAX'),
             },
             # "Events": self.events.event_rewards(),
-            "Rewards": {
-                "Reward_Sum": self.reward_sum(),
-                "Exploration": self.expl_rew(),
-                "Level": self.level_rew(),
-                "Healing": self.heal_rew(),
-                "Event_Sum": self.event_reward,
-                "Cut": self.cut_reward,    
-                "Seen_Poke": self.seen_pokemon_reward,
-                "Caught_Poke": self.caught_pokemon_reward,
-                "Moves_Obtained": self.moves_obtained_reward,
-                "Used_Cut": self.used_cut_rew,
-                "Cut_Coords": self.cut_coords_reward,
-                "Cut_Tiles": self.cut_tiles_reward,
-                "Start_Menu": self.seen_start_menu * 0.01,
-                "Poke_Menu": self.seen_pokemon_menu * 0.1,
-                "Stats_Menu": self.seen_stats_menu * 0.1,
-                "Bag_Menu": self.seen_bag_menu * 0.1,
-            },
-            "Misc": {
-                "cut": self.cut,
-                "deaths": self.death_count,
-                "local_expl_rew": len(self.seen_coords)/self.max_episode_steps,
-            },
+            # "Rewards": {
+            #     "Reward_Sum": self.reward_sum(),
+            #     "Exploration": self.expl_rew(),
+            #     "Level": self.level_rew(),
+            #     "Healing": self.heal_rew(),
+            #     "Event_Sum": self.event_reward,
+            #     "Cut": self.cut_reward,    
+            #     "Seen_Poke": self.seen_pokemon_reward,
+            #     "Caught_Poke": self.caught_pokemon_reward,
+            #     "Moves_Obtained": self.moves_obtained_reward,
+            #     "Used_Cut": self.used_cut_rew,
+            #     "Cut_Coords": self.cut_coords_reward,
+            #     "Cut_Tiles": self.cut_tiles_reward,
+            #     "Start_Menu": self.seen_start_menu * 0.01,
+            #     "Poke_Menu": self.seen_pokemon_menu * 0.1,
+            #     "Stats_Menu": self.seen_stats_menu * 0.1,
+            #     "Bag_Menu": self.seen_bag_menu * 0.1,
+            # },
+            # "Misc": {
+            #     "cut": self.cut,
+            #     "deaths": self.death_count,
+            #     "local_expl_rew": len(self.seen_coords)/self.max_episode_steps,
+            # },
         }
         if self.swarming:
             required_events = self.get_req_events()
