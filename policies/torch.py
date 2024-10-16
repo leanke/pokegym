@@ -48,60 +48,80 @@ class Policy(nn.Module):
         if self.add_boey_obs:
             self.boey_nets()
             self.flat_size = self.flat_size + 150
-        self.thatguys_cnn = env.unwrapped.env.thatguys_cnn
-        if self.thatguys_cnn:
-            self.flat_size = self.flat_size + 1664 + 1024
-            self.screen= nn.Sequential(
-                pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 3, stride=2)),
-                nn.ReLU(),
-                pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 3, stride=2)),
-                nn.ReLU(),
-                pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=2)),
-                nn.ReLU(),
-            )
-        else:
-            self.screen = nn.Sequential(
-                pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 8, stride=4)),
-                nn.ReLU(),
-                pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
-                nn.ReLU(),
-                pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=1)),
-                nn.ReLU(),
-            )
-        self.flatten = nn.Flatten()
+
+
+        self.screen= nn.Sequential(
+            pufferlib.pytorch.layer_init(nn.Conv2d(1, 32, 8, stride=4)),
+            nn.ReLU(),
+            pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
+            nn.ReLU(),
+            pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=1)),
+            nn.ReLU(),
+            nn.Flatten()
+        )
+        self.window = nn.Sequential(
+            pufferlib.pytorch.layer_init(nn.Conv2d(1, 32, 8, stride=4)),
+            nn.ReLU(),
+            pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
+            nn.ReLU(),
+            pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=1)),
+            nn.ReLU(),
+            nn.Flatten()
+        )
         self.map_embedding = torch.nn.Embedding(248, 4, dtype=torch.float32)
-        self.poke_id = nn.Embedding(190, 6, dtype=torch.float32)
-        self.poke_type = nn.Embedding(15, 6, dtype=torch.float32)
-        self.pokemon_embedding = nn.Linear(in_features=38, out_features=16) # input: id, status, type1, type2, stats_level # 8+8+8+8+6 # output: 16?
-        self.activations = []
-        self.counter = 0
+        self.direction_embedding = nn.Embedding(4, 2, dtype=torch.float32)
+        self.position_fc = nn.Sequential(
+            nn.Linear(6, 4),
+            nn.ReLU(),
+            nn.Linear(4, 4),
+            nn.ReLU(),
+        )
+        self.event_fc = nn.Sequential(
+            nn.Linear(7, 4),
+            nn.ReLU(),
+            nn.Linear(4, 4),
+            nn.ReLU(),
+        )
+        self.cnn_fc = nn.Sequential(
+            nn.Linear(1920, 512),  # Adjust this size as needed
+            nn.ReLU(),
+        )
         self.linear= nn.Sequential(
             pufferlib.pytorch.layer_init(nn.Linear(self.flat_size, hidden_size)),
             nn.ReLU(),)
+        
+        self.activations = []
+        self.counter = 0
 
     def encode_observations(self, observations):
         observation = pufferlib.pytorch.nativize_tensor(observations, self.dtype)
-        screens = torch.cat([observation['screen'], observation['fixed_window'],], dim=-1)
 
+        # images
         if self.channels_last:
-            screen = screens.permute(0, 3, 1, 2)
-        if self.downsample > 1:
-            screen = screens[:, :, ::self.downsample, ::self.downsample]
+            screen_input = observation['screen'].permute(0, 3, 1, 2).float() / 255.0
+            fixed_window_input = observation['fixed_window'].permute(0, 3, 1, 2).float() / 255.0
+        screen = self.screen(screen_input)
+        fixed_window = self.window(fixed_window_input)
+        combined = torch.cat((screen, fixed_window), dim=-1)
+        image = self.cnn_fc(combined)
 
-        if self.extra_obs:
-            cat = torch.cat((
-                self.flatten(self.screen(screen.float() / 255.0)).squeeze(1),
-                self.map_embedding(observation["map_n"].long()).squeeze(1),
-                observation["flute"].float(),
-                observation["bike"].float(),
-                observation["hideout"].float(),
-                observation["tower"].float(),
-                observation["silphco"].float(),
-                observation["snorlax_12"].float(),
-                observation["snorlax_16"].float(),
-            ),dim=-1,)
-        else:
-            cat = self.screen(screen.float() / 255.0),
+        # positions
+        x = observation['x'].float()
+        y = observation['y'].float()
+        map_n_embedded = self.map_embedding(observation['map_n'].long())
+        direction_embedded = self.direction_embedding(observation['direction'].long())
+        position_input = torch.cat([x, y, map_n_embedded, direction_embedded], dim=-1)
+        position = self.position_fc(position_input)
+
+        # events
+        task_input = torch.cat(
+            [observation['flute'], observation['bike'], observation['hideout'], observation['tower'],
+             observation['silphco'], observation['snorlax_12'], observation['snorlax_16']],
+            dim=-1).float()
+        event = self.event_fc(task_input)
+
+
+        cat = torch.cat([image, position, event], dim=-1)
 
         if self.add_boey_obs:
                 boey_obs = self.boey_obs(observation)
