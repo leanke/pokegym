@@ -136,7 +136,7 @@ class Environment:
                 {
                     "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
                     "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
-                    "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
+                    "map_n": spaces.Box(low=0, high=247, shape=(1,), dtype=np.uint8),
                     "x": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
                     "y": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
                     "direction": spaces.Box(low=0, high=4, shape=(1,), dtype=np.uint8),
@@ -147,6 +147,15 @@ class Environment:
                     "silphco": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
                     "snorlax_12": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
                     "snorlax_16": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "cut": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "brock": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "misty": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "surge": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "erika": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "koga": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "sabrina": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "blaine": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
+                    "giovanni": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
                 })
         else:
             self.observation_space = spaces.Dict(
@@ -163,7 +172,7 @@ class Environment:
         if self.extra_obs:
             return {
                 "screen": self.render(),
-                "fixed_window": self.get_fixed_window(mmap, r, c, (72,80,1).shape),
+                "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
                 "map_n": np.array(map_n, dtype=np.uint8),
                 "x": np.array(c, dtype=np.uint8),
                 "y": np.array(r, dtype=np.uint8),
@@ -175,6 +184,15 @@ class Environment:
                 "silphco": np.array(ram_map.read_bit(self.game, 0xD838, 7), dtype=np.uint8),
                 "snorlax_12": np.array(ram_map.read_bit(self.game, 0xD7D8, 7), dtype=np.uint8),
                 "snorlax_16": np.array(ram_map.read_bit(self.game, 0xD7E0, 1), dtype=np.uint8),
+                "cut": np.array(ram_map.read_bit(self.game, 0xD803, 0), dtype=np.uint8),
+                "brock": np.array(self.events.get_event('EVENT_BEAT_BROCK'), dtype=np.uint8),
+                "misty": np.array(self.events.get_event('EVENT_BEAT_MISTY'), dtype=np.uint8),
+                "surge": np.array(self.events.get_event('EVENT_BEAT_LT_SURGE'), dtype=np.uint8),
+                "erika": np.array(self.events.get_event('EVENT_BEAT_ERIKA'), dtype=np.uint8),
+                "koga": np.array(self.events.get_event('EVENT_BEAT_KOGA'), dtype=np.uint8),
+                "sabrina": np.array(self.events.get_event('EVENT_BEAT_SABRINA'), dtype=np.uint8),
+                "blaine": np.array(self.events.get_event('EVENT_BEAT_BLAINE'), dtype=np.uint8),
+                "giovanni": np.array(self.events.get_event('EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI'), dtype=np.uint8),
             }
         else:
             return {
@@ -185,9 +203,53 @@ class Environment:
     def reset(self, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None):
         self.reset_count += 1
         self.reset_state()
-        self.reset_var()
+        self.load_first_state()
         options = options or {}
         info = {}
+        if self.save_video:
+            base_dir = self.s_path
+            base_dir.mkdir(parents=True, exist_ok=True)
+            full_name = Path(f'reset_{self.reset_count}').with_suffix('.mp4')
+            self.full_frame_writer = media.VideoWriter(base_dir / full_name, (144, 160), fps=60)
+            self.full_frame_writer.__enter__()
+
+        if self.inf_money:
+            r, c, map_n = ram_map.position(self.game)
+            if map_n == 7:
+                ram_map.write_mem(self.game, 0xD347, 0x09)
+
+        self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
+        self.time = 0
+        self.cut_reward = 0
+        self.event_reward = 0   
+        self.seen_pokemon_reward = 0
+        self.caught_pokemon_reward = 0
+        self.moves_obtained_reward = 0
+        self.used_cut_rew = 0
+        self.cut_coords_reward = 0
+        self.cut_tiles_reward = 0
+        self.max_level_sum = 0
+        self.seen_coords = set()
+        self.total_healing = 0
+        self.hm_count = 0
+        self.cut = 0
+        self.cut_coords = {}
+        self.cut_tiles = {}
+        self.cut_state = deque(maxlen=3)
+        self.seen_start_menu = 0
+        self.seen_pokemon_menu = 0
+        self.seen_stats_menu = 0
+        self.seen_bag_menu = 0
+        self.seen_pokemon = np.zeros(152, dtype=np.uint8)
+        self.caught_pokemon = np.zeros(152, dtype=np.uint8)
+        self.moves_obtained = {}
+        self.cut_counter = 0
+        self.last_hp = 1.0
+        self.last_party_size = 1
+        self.reward_sum_calc = 0
+        self.events = EventFlags(self.game)
+        r, c, map_n = ram_map.position(self.game)
+        self.coords = (c, r, map_n)
 
         if options.get("state", None) is not None:
             self.game.load_state(io.BytesIO(options["state"]))
@@ -319,20 +381,20 @@ class Environment:
         r, c, map_n = ram_map.position(self.game)
         self.coords = (c, r, map_n)
 
-    # def update_pokedex(self):
-    #     for i in range(0xD30A - 0xD2F7):
-    #         caught_mem = self.game.memory[i + 0xD2F7]
-    #         seen_mem = self.game.memory[i + 0xD30A]
-    #         for j in range(8):
-    #             self.caught_pokemon[8*i + j] = 1 if caught_mem & (1 << j) else 0
-    #             self.seen_pokemon[8*i + j] = 1 if seen_mem & (1 << j) else 0  
-
     def update_pokedex(self):
-        num_entries = 0xD30A - 0xD2F7
-        caught_mem = np.array(self.game.memory[0xD2F7:0xD2F7 + num_entries], dtype=np.uint8)
-        seen_mem = np.array(self.game.memory[0xD30A:0xD30A + num_entries], dtype=np.uint8)
-        self.caught_pokemon = np.unpackbits(caught_mem).astype(np.uint8)
-        self.seen_pokemon = np.unpackbits(seen_mem).astype(np.uint8)
+        for i in range(0xD30A - 0xD2F7):
+            caught_mem = self.game.memory[i + 0xD2F7]
+            seen_mem = self.game.memory[i + 0xD30A]
+            for j in range(8):
+                self.caught_pokemon[8*i + j] = 1 if caught_mem & (1 << j) else 0
+                self.seen_pokemon[8*i + j] = 1 if seen_mem & (1 << j) else 0  
+
+    # def update_pokedex(self):
+    #     num_entries = 0xD30A - 0xD2F7
+    #     caught_mem = np.array(self.game.memory[0xD2F7:0xD2F7 + num_entries], dtype=np.uint8)
+    #     seen_mem = np.array(self.game.memory[0xD30A:0xD30A + num_entries], dtype=np.uint8)
+    #     self.caught_pokemon = np.unpackbits(caught_mem).astype(np.uint8)
+    #     self.seen_pokemon = np.unpackbits(seen_mem).astype(np.uint8)
     
     def update_moves_obtained(self):
         # Scan party
@@ -532,24 +594,23 @@ class Environment:
     def reward_sum(self):
         exploration_reward = self.expl_rew()
         level_reward = self.level_rew()
-        # healing_reward = self.heal_rew()
-        if self.time % 2 == 0:
-            if self.new_events:
-                events = [self.events.get_event(event) for event in EVENTS]
-                self.event_reward = sum(events)*3
-            else:
-                ram_events = [
-                    ram_map.silph_co(self.game), ram_map.rock_tunnel(self.game), ram_map.ssanne(self.game), 
-                    ram_map.mtmoon(self.game), ram_map.routes(self.game), ram_map.misc(self.game), 
-                    ram_map.snorlax(self.game), ram_map.hmtm(self.game), ram_map.bill(self.game), 
-                    ram_map.oak(self.game), ram_map.towns(self.game), ram_map.lab(self.game), 
-                    ram_map.mansion(self.game), ram_map.safari(self.game), ram_map.dojo(self.game), 
-                    ram_map.hideout(self.game), ram_map.poke_tower(self.game), ram_map.gym1(self.game), 
-                    ram_map.gym2(self.game), ram_map.gym3(self.game), ram_map.gym4(self.game), 
-                    ram_map.gym5(self.game), ram_map.gym6(self.game), ram_map.gym7(self.game), 
-                    ram_map.gym8(self.game), ram_map.rival(self.game)
-                ]
-                self.event_reward = sum(ram_events)
+        healing_reward = self.heal_rew()
+        # if self.time % 2 == 0:
+        #     if self.new_events:
+        #         events = [self.events.get_event(event) for event in EVENTS]
+        #         self.event_reward = sum(events)*3
+        ram_events = [
+            ram_map.silph_co(self.game), ram_map.rock_tunnel(self.game), ram_map.ssanne(self.game), 
+            ram_map.mtmoon(self.game), ram_map.routes(self.game), ram_map.misc(self.game), 
+            ram_map.snorlax(self.game), ram_map.hmtm(self.game), ram_map.bill(self.game), 
+            ram_map.oak(self.game), ram_map.towns(self.game), ram_map.lab(self.game), 
+            ram_map.mansion(self.game), ram_map.safari(self.game), ram_map.dojo(self.game), 
+            ram_map.hideout(self.game), ram_map.poke_tower(self.game), ram_map.gym1(self.game), 
+            ram_map.gym2(self.game), ram_map.gym3(self.game), ram_map.gym4(self.game), 
+            ram_map.gym5(self.game), ram_map.gym6(self.game), ram_map.gym7(self.game), 
+            ram_map.gym8(self.game), ram_map.rival(self.game)
+        ]
+        self.event_reward = sum(ram_events)
 
         self.cut_reward = self.cut * 10
         self.seen_pokemon_reward = sum(self.seen_pokemon) * self.reward_scale
@@ -565,7 +626,7 @@ class Environment:
         that_guy = (start_menu + pokemon_menu + stats_menu + bag_menu ) / 2
         self.reward_sum_calc = (
             + level_reward
-            # + healing_reward
+            + healing_reward
             + exploration_reward 
             + self.cut_reward
             + self.event_reward     
@@ -578,54 +639,6 @@ class Environment:
             + that_guy
         )
         return self.reward_sum_calc
-    
-    # def reward_sum(self):
-    #     exploration_reward = self.expl_rew()
-    #     level_reward = self.level_rew()
-    #     # healing_reward = self.heal_rew()
-    #     if self.time % 2 == 0:
-    #         if self.new_events:
-    #             events = (self.events.get_event(event) for event in EVENTS)
-    #             self.event_reward = sum(events) * 3
-    #         else:
-    #             ram_events = [
-    #                 ram_map.silph_co(self.game), ram_map.rock_tunnel(self.game), ram_map.ssanne(self.game), 
-    #                 ram_map.mtmoon(self.game), ram_map.routes(self.game), ram_map.misc(self.game), 
-    #                 ram_map.snorlax(self.game), ram_map.hmtm(self.game), ram_map.bill(self.game), 
-    #                 ram_map.oak(self.game), ram_map.towns(self.game), ram_map.lab(self.game), 
-    #                 ram_map.mansion(self.game), ram_map.safari(self.game), ram_map.dojo(self.game), 
-    #                 ram_map.hideout(self.game), ram_map.poke_tower(self.game), ram_map.gym1(self.game), 
-    #                 ram_map.gym2(self.game), ram_map.gym3(self.game), ram_map.gym4(self.game), 
-    #                 ram_map.gym5(self.game), ram_map.gym6(self.game), ram_map.gym7(self.game), 
-    #                 ram_map.gym8(self.game), ram_map.rival(self.game)
-    #             ]
-    #             self.event_reward = sum(ram_events)
-
-    #     self.cut_reward = self.cut * 10
-    #     sum_pokemon_reward = [self.seen_pokemon, self.caught_pokemon,]
-    #     self.sum_pokemon_reward = sum(sum_pokemon_reward) * self.reward_scale
-    #     cut_menu_rew = [self.seen_pokemon_menu, self.seen_stats_menu, self.seen_bag_menu]
-    #     self.cut_menu_rew = sum(cut_menu_rew) * 0.1
-    #     self.used_cut_rew = self.used_cut * 0.1
-    #     moves_obtained_rew = sum(self.moves_obtained.values()) * self.reward_scale
-    #     self.cut_coords_reward = sum(self.cut_coords.values())
-    #     self.cut_tiles_reward = len(self.cut_tiles)
-    #     start_menu = self.seen_start_menu * 0.01
-    #     that_guy = (start_menu + self.cut_menu_rew ) / 2
-    #     self.reward_sum_calc = (
-    #         moves_obtained_rew
-    #         + level_reward
-    #         # + healing_reward
-    #         + exploration_reward 
-    #         + self.cut_reward
-    #         + self.event_reward     
-    #         + self.sum_pokemon_reward
-    #         + self.used_cut_rew
-    #         + self.cut_coords_reward
-    #         + self.cut_tiles_reward
-    #         + that_guy
-    #     )
-    #     return self.reward_sum_calc
     
     def infos_dict(self):
         info = {

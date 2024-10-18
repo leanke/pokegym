@@ -37,13 +37,13 @@ class Policy(nn.Module):
         self.save_table = True
         self.channels_last = channels_last
         self.downsample = downsample
-        self.flat_size = flat_size
+        self.flat_size = flat_size 
         self.dtype = pufferlib.pytorch.nativize_dtype(env.emulated)
         self.actor = pufferlib.pytorch.layer_init(nn.Linear(hidden_size, env.single_action_space.n), std=0.01)
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
         self.extra_obs = env.unwrapped.env.extra_obs # env.unwrapped is GymnasiumPufferEnv
         if self.extra_obs:
-            self.flat_size = self.flat_size + 11 #+ 144
+            self.flat_size = 1944 # self.flat_size + 11 #+ 144
         self.add_boey_obs = env.unwrapped.env.add_boey_obs
         if self.add_boey_obs:
             self.boey_nets()
@@ -51,16 +51,7 @@ class Policy(nn.Module):
 
 
         self.screen= nn.Sequential(
-            pufferlib.pytorch.layer_init(nn.Conv2d(1, 32, 8, stride=4)),
-            nn.ReLU(),
-            pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
-            nn.ReLU(),
-            pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=1)),
-            nn.ReLU(),
-            nn.Flatten()
-        )
-        self.window = nn.Sequential(
-            pufferlib.pytorch.layer_init(nn.Conv2d(1, 32, 8, stride=4)),
+            pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 8, stride=4)),
             nn.ReLU(),
             pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
             nn.ReLU(),
@@ -69,21 +60,17 @@ class Policy(nn.Module):
             nn.Flatten()
         )
         self.map_embedding = torch.nn.Embedding(248, 4, dtype=torch.float32)
-        self.direction_embedding = nn.Embedding(4, 2, dtype=torch.float32)
+        self.direction_embedding = nn.Embedding(5, 2, dtype=torch.float32)
         self.position_fc = nn.Sequential(
-            nn.Linear(6, 4),
-            nn.ReLU(),
-            nn.Linear(4, 4),
+            nn.Linear(8, 8),
             nn.ReLU(),
         )
         self.event_fc = nn.Sequential(
-            nn.Linear(7, 4),
-            nn.ReLU(),
-            nn.Linear(4, 4),
+            nn.Linear(16, 16),
             nn.ReLU(),
         )
         self.cnn_fc = nn.Sequential(
-            nn.Linear(1920, 512),  # Adjust this size as needed
+            nn.Linear(1920, 512),
             nn.ReLU(),
         )
         self.linear= nn.Sequential(
@@ -97,31 +84,60 @@ class Policy(nn.Module):
         observation = pufferlib.pytorch.nativize_tensor(observations, self.dtype)
 
         # images
+        screens = torch.cat([observation['screen'], observation['fixed_window'],], dim=-1)
         if self.channels_last:
-            screen_input = observation['screen'].permute(0, 3, 1, 2).float() / 255.0
-            fixed_window_input = observation['fixed_window'].permute(0, 3, 1, 2).float() / 255.0
-        screen = self.screen(screen_input)
-        fixed_window = self.window(fixed_window_input)
-        combined = torch.cat((screen, fixed_window), dim=-1)
-        image = self.cnn_fc(combined)
+            screens = screens.permute(0, 3, 1, 2)
 
         # positions
         x = observation['x'].float()
         y = observation['y'].float()
-        map_n_embedded = self.map_embedding(observation['map_n'].long())
-        direction_embedded = self.direction_embedding(observation['direction'].long())
-        position_input = torch.cat([x, y, map_n_embedded, direction_embedded], dim=-1)
-        position = self.position_fc(position_input)
-
-        # events
-        task_input = torch.cat(
-            [observation['flute'], observation['bike'], observation['hideout'], observation['tower'],
-             observation['silphco'], observation['snorlax_12'], observation['snorlax_16']],
-            dim=-1).float()
-        event = self.event_fc(task_input)
+        map_n_embedded = self.map_embedding(observation['map_n'].long()).squeeze(1)
+        direction_embedded = self.direction_embedding(observation['direction'].long()).squeeze(1)
+        # position_input = torch.cat([x, y, map_n_embedded, direction_embedded], dim=-1) # torch.Size([32, 8])
 
 
-        cat = torch.cat([image, position, event], dim=-1)
+        # # events
+        # task_input = torch.cat(
+        #     [observation['flute'].float(), 
+        #      observation['bike'].float(), 
+        #      observation['hideout'].float(), 
+        #      observation['tower'].float(),
+        #      observation['silphco'].float(), 
+        #      observation['snorlax_12'].float(), 
+        #      observation['snorlax_16'].float(), 
+        #      observation['cut'].float(),
+        #      observation['brock'].float(), 
+        #      observation['misty'].float(), 
+        #      observation['surge'].float(), 
+        #      observation['erika'].float(),
+        #      observation['koga'].float(), 
+        #      observation['sabrina'].float(), 
+        #      observation['blaine'].float(), 
+        #      observation['giovanni'].float()],
+        #     dim=-1)
+        
+
+        # T()
+        cat = torch.cat([
+            self.screen(screens.float() / 255.0).squeeze(1), 
+            x, y, map_n_embedded, direction_embedded,
+            observation['flute'].float(), 
+            observation['bike'].float(), 
+            observation['hideout'].float(), 
+            observation['tower'].float(),
+            observation['silphco'].float(), 
+            observation['snorlax_12'].float(), 
+            observation['snorlax_16'].float(), 
+            observation['cut'].float(),
+            observation['brock'].float(), 
+            observation['misty'].float(), 
+            observation['surge'].float(), 
+            observation['erika'].float(),
+            observation['koga'].float(), 
+            observation['sabrina'].float(), 
+            observation['blaine'].float(), 
+            observation['giovanni'].float(),
+            ], dim=-1)# 
 
         if self.add_boey_obs:
                 boey_obs = self.boey_obs(observation)
