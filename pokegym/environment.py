@@ -131,74 +131,51 @@ class Environment:
         return screen
     
     def obs_space(self):
-        if self.extra_obs:
-            self.observation_space = spaces.Dict(
-                {
-                    "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
-                    "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
-                    "map_n": spaces.Box(low=0, high=247, shape=(1,), dtype=np.uint8),
-                    "x": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
-                    "y": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
-                    "direction": spaces.Box(low=0, high=4, shape=(1,), dtype=np.uint8),
-                    "flute": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "bike": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "hideout": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "tower": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "silphco": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "snorlax_12": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "snorlax_16": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "cut": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "brock": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "misty": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "surge": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "erika": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "koga": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "sabrina": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "blaine": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "giovanni": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                })
-        else:
-            self.observation_space = spaces.Dict(
-                {
-                    "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
-                    "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
-                })
+        self.observation_space = spaces.Dict(
+            {
+                "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
+                "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
+                "map_n": spaces.Box(low=0, high=247, shape=(1,), dtype=np.uint8),
+                "x": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
+                "y": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
+                "direction": spaces.Box(low=0, high=4, shape=(1,), dtype=np.uint8),  
+                "events": spaces.Box(low=0, high=16, shape=(1,), dtype=np.uint8),
+            })
 
     def _get_obs(self):
         c, r, map_n = self.coords
         mmap = self.screen_memory[map_n]
         if 0 <= r <= 254 and 0 <= c <= 254:
             mmap[r, c] = 255
-        if self.extra_obs:
-            return {
-                "screen": self.render(),
-                "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
-                "map_n": np.array(map_n, dtype=np.uint8),
-                "x": np.array(c, dtype=np.uint8),
-                "y": np.array(r, dtype=np.uint8),
-                "direction": np.array(self.game.memory[0xC109] // 4, dtype=np.uint8),
-                "flute": np.array(ram_map.read_bit(self.game, 0xD76C, 0), dtype=np.uint8),
-                "bike": np.array(ram_map.read_bit(self.game, 0xD75F, 0), dtype=np.uint8),
-                "hideout": np.array(ram_map.read_bit(self.game, 0xD81B, 7), dtype=np.uint8),
-                "tower": np.array(ram_map.read_bit(self.game, 0xD7E0, 7), dtype=np.uint8),
-                "silphco": np.array(ram_map.read_bit(self.game, 0xD838, 7), dtype=np.uint8),
-                "snorlax_12": np.array(ram_map.read_bit(self.game, 0xD7D8, 7), dtype=np.uint8),
-                "snorlax_16": np.array(ram_map.read_bit(self.game, 0xD7E0, 1), dtype=np.uint8),
-                "cut": np.array(ram_map.read_bit(self.game, 0xD803, 0), dtype=np.uint8),
-                "brock": np.array(self.events.get_event('EVENT_BEAT_BROCK'), dtype=np.uint8),
-                "misty": np.array(self.events.get_event('EVENT_BEAT_MISTY'), dtype=np.uint8),
-                "surge": np.array(self.events.get_event('EVENT_BEAT_LT_SURGE'), dtype=np.uint8),
-                "erika": np.array(self.events.get_event('EVENT_BEAT_ERIKA'), dtype=np.uint8),
-                "koga": np.array(self.events.get_event('EVENT_BEAT_KOGA'), dtype=np.uint8),
-                "sabrina": np.array(self.events.get_event('EVENT_BEAT_SABRINA'), dtype=np.uint8),
-                "blaine": np.array(self.events.get_event('EVENT_BEAT_BLAINE'), dtype=np.uint8),
-                "giovanni": np.array(self.events.get_event('EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI'), dtype=np.uint8),
-            }
-        else:
-            return {
-                "screen": self.render(),
-                "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
-            }
+        events = [
+            self.events.get_event('EVENT_BEAT_BROCK'),
+            self.events.get_event('EVENT_BEAT_MISTY'),
+            self.events.get_event('EVENT_BEAT_LT_SURGE'),
+            self.events.get_event('EVENT_BEAT_ERIKA'),
+            self.events.get_event('EVENT_BEAT_KOGA'),
+            self.events.get_event('EVENT_BEAT_SABRINA'),
+            self.events.get_event('EVENT_BEAT_BLAINE'),
+            self.events.get_event('EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI'),
+            ram_map.read_bit(self.game, 0xD76C, 0),
+            ram_map.read_bit(self.game, 0xD75F, 0),
+            ram_map.read_bit(self.game, 0xD81B, 7),
+            ram_map.read_bit(self.game, 0xD7E0, 7),
+            ram_map.read_bit(self.game, 0xD838, 7),
+            ram_map.read_bit(self.game, 0xD7D8, 7),
+            ram_map.read_bit(self.game, 0xD7E0, 1),
+            ram_map.read_bit(self.game, 0xD803, 0),
+        ]
+        # event_array = np.array(events, dtype=np.uint8)
+        
+        return {
+            "screen": self.render(),
+            "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
+            "map_n": np.array(map_n, dtype=np.uint8),
+            "x": np.array(c, dtype=np.uint8),
+            "y": np.array(r, dtype=np.uint8),
+            "direction": np.array(self.game.memory[0xC109] // 4, dtype=np.uint8),
+            "events":  np.array(sum(events), dtype=np.uint8),
+        }
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None):
         self.reset_count += 1

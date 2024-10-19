@@ -1,19 +1,17 @@
-from dataclasses import field
-from functools import partial
-import heapq
-import json
-import math
-from multiprocessing import Queue
 from pdb import set_trace as T
 import numpy as np
-import contextlib
-import ast
 
 import os
 import random
+import psutil
 import time
 
+from threading import Thread
 from collections import defaultdict, deque
+
+import rich
+from rich.console import Console
+from rich.table import Table
 
 import torch
 
@@ -21,59 +19,48 @@ import pufferlib
 import pufferlib.utils
 import pufferlib.pytorch
 
+# Leanke
+from dataclasses import field
+from functools import partial
+import json
+from multiprocessing import Queue
+
 torch.set_float32_matmul_precision('high')
 
 # Fast Cython GAE implementation
-import pyximport
-pyximport.install(setup_args={"include_dirs": np.get_include()})
+#import pyximport
+#pyximport.install(setup_args={"include_dirs": np.get_include()})
 from c_gae import compute_gae
 
 
-def optimize(data, config, loss):
-    #data.optimizer.zero_grad()
-    loss.backward()
-    torch.nn.utils.clip_grad_norm_(data.policy.parameters(), config.max_grad_norm)
-    data.optimizer.step()
-    if config.device == 'cuda':
-        torch.cuda.synchronize()
-
-
-def create(config, vecenv, policy, async_config, optimizer=None, wandb=None):
+def create(config, vecenv, policy, optimizer=None, wandb=None):
     seed_everything(config.seed, config.torch_deterministic)
     profile = Profile()
     losses = make_losses()
 
+    utilization = Utilization()
     msg = f'Model Size: {abbreviate(count_params(policy))} parameters'
-    # TODO: Check starting point in term and draw from there with no clear
-    print_dashboard(config.env, 0, 0, profile, losses, {}, msg, clear=True)
+    print_dashboard(config.env, utilization, 0, 0, profile, losses, {}, msg, clear=True)
 
     vecenv.async_reset(config.seed)
     obs_shape = vecenv.single_observation_space.shape
     obs_dtype = vecenv.single_observation_space.dtype
     atn_shape = vecenv.single_action_space.shape
+    atn_dtype = vecenv.single_action_space.dtype
     total_agents = vecenv.num_agents
 
     lstm = policy.lstm if hasattr(policy, 'lstm') else None
-    experience = Experience(config.batch_size, vecenv.agents_per_batch, config.bptt_horizon,
-        config.minibatch_size, obs_shape, obs_dtype, atn_shape, config.cpu_offload, config.device, lstm, total_agents)
+    experience = Experience(config.batch_size, config.bptt_horizon,
+        config.minibatch_size, obs_shape, obs_dtype, atn_shape, atn_dtype,
+        config.cpu_offload, config.device, lstm, total_agents)
 
     uncompiled_policy = policy
 
     if config.compile:
         policy = torch.compile(policy, mode=config.compile_mode)
-    # breakpoint()
+
     optimizer = torch.optim.Adam(policy.parameters(),
         lr=config.learning_rate, eps=1e-5)
-    if async_config is not None:
-        env_send_queues = async_config['send_queues']
-        env_recv_queues = async_config['recv_queues']
-    else:
-        env_send_queues = None
-        env_recv_queues = None
-    states: dict = defaultdict(partial(deque, maxlen=1))
-    event_tracker: dict = {}
-    max_event_count: int = 0
-    misc_conuter = 0
 
     return pufferlib.namespace(
         config=config,
@@ -87,15 +74,10 @@ def create(config, vecenv, policy, async_config, optimizer=None, wandb=None):
         wandb=wandb,
         global_step=0,
         epoch=0,
-        stats={},
+        stats=defaultdict(list),
         msg=msg,
-        last_log_time=time.time(),
-        env_send_queues=env_send_queues,
-        env_recv_queues=env_recv_queues,
-        states=states,
-        event_tracker=event_tracker,
-        max_event_count=max_event_count,
-        misc_conuter=misc_conuter
+        last_log_time=0,
+        utilization=utilization,
     )
 
 @pufferlib.utils.profile
@@ -106,7 +88,6 @@ def evaluate(data):
         policy = data.policy
         infos = defaultdict(list)
         lstm_h, lstm_c = experience.lstm_h, experience.lstm_c
-
 
     while not experience.full:
         with profile.env:
@@ -145,21 +126,13 @@ def evaluate(data):
 
             for i in info:
                 for k, v in pufferlib.utils.unroll_nested_dict(i):
-                    if "state" in k:
-                        _, key = k.split("/")
-                        key: tuple[str] = ast.literal_eval(key)
-                        data.states[key].append(v)
-                    elif "required_count" == k:
-                        for count, eid in zip(infos["required_count"], infos["env_id"]):
-                            data.event_tracker[eid] = count
-                        infos[k].append(v)
-                    else:
-                        infos[k].append(v)
+                    infos[k].append(v)
 
         with profile.env:
             data.vecenv.send(actions)
 
     with profile.eval_misc:
+        # Leanke
         config = data.config
         path = os.path.join(config.data_dir, config.exp_id)
         if not os.path.exists(path):
@@ -186,37 +159,12 @@ def evaluate(data):
                     max_state = candidate_max_state
             if max_event_count > data.max_event_count and max_state:
                 data.max_event_count = max_event_count
-                # print(f"\tNew events ({len(new_state_key)}): {new_state_key}")
                 for key in data.event_tracker.keys():
                     new_state = random.choice(data.states[new_state_key])
                     data.env_recv_queues[key].put(new_state)
                 for key in data.event_tracker.keys():
                     data.env_send_queues[key].get()
                 print(f"State migration {str(hash(new_state_key))} complete")
-
-        # if (hasattr(data.config, "swarm_keep_pct") and "swarm_metric2" in infos and "state" in infos):
-        #     data.misc_conuter += 1
-        #     print(f"Swarm Counter: {data.misc_conuter}")
-        #     if data.misc_conuter % 10 == 0:
-        #         largest = [x[0] for x in heapq.nlargest(math.ceil(data.config.num_envs * data.config.swarm_keep_pct), enumerate(infos["swarm_metric2"]), key=lambda x: x[1],)]
-        #         reset_states = [random.choice(largest) if i not in largest else i for i in range(data.config.num_envs)]
-        #         print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
-        #         print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
-        #         print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
-        #         print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
-        #         print(f"Migrating states: {','.join(str(i) + '->' + str(n) for i, n in enumerate(reset_states))}")
-        #         for i in range(data.config.num_envs):
-        #             try:
-        #                 data.env_recv_queues[i].put(infos["state"][reset_states[i]])
-        #             except:
-        #                 continue
-        #         for i in range(data.config.num_envs):
-        #             try:
-        #                 data.env_send_queues[i].get()
-        #             except:
-        #                 continue
-
-        data.stats = {}
 
         # Moves into models... maybe. Definitely moves.
         # You could also just return infos and have it in demo
@@ -234,32 +182,23 @@ def evaluate(data):
                 data.stats['Media/exploration_map'] = data.wandb.Image(rendered)
 
         for k, v in infos.items():
-            try: # TODO: Better checks on log data types
-                data.stats[k] = np.mean(v)
-            except:
-                continue
+            # if '_map' in k and data.wandb is not None:
+            #     data.stats[f'Media/{k}'] = data.wandb.Image(v[0])
+            #     continue
 
+            if isinstance(v, np.ndarray):
+                v = v.tolist()
+            try:
+                iter(v)
+            except TypeError:
+                data.stats[k].append(v)
+            else:
+                data.stats[k] += v
 
+    # TODO: Better way to enable multiple collects
+    data.experience.ptr = 0
+    data.experience.step = 0
     return data.stats, infos
-
-def compute_advantages(batch_size, idxs, dones, values, rewards, gamma, gae_lambda):
-    advantages = np.zeros(batch_size)
-    lastgaelam = 0
-    for t in reversed(range(batch_size-1)):
-        i, i_nxt = idxs[t], idxs[t + 1]
-
-        nextnonterminal = 1.0 - dones[i_nxt]
-        nextvalues = values[i_nxt]
-        delta = (
-            rewards[i_nxt]
-            + gamma * nextvalues * nextnonterminal
-            - values[i]
-        )
-        advantages[t] = lastgaelam = (
-            delta + gamma * gae_lambda * nextnonterminal * lastgaelam
-        )
-
-    return advantages
 
 @pufferlib.utils.profile
 def train(data):
@@ -278,6 +217,7 @@ def train(data):
         experience.flatten_batch(advantages_np)
 
     # Optimizing the policy and value network
+    total_minibatches = experience.num_minibatches * config.update_epochs
     mean_pg_loss, mean_v_loss, mean_entropy_loss = 0, 0, 0
     mean_old_kl, mean_kl, mean_clipfrac = 0, 0, 0
     for epoch in range(config.update_epochs):
@@ -352,15 +292,14 @@ def train(data):
                 data.optimizer.step()
                 if config.device == 'cuda':
                     torch.cuda.synchronize()
-                #data.optim(data, config, loss)
 
             with profile.train_misc:
-                losses.policy_loss += pg_loss.item() / experience.num_minibatches
-                losses.value_loss += v_loss.item() / experience.num_minibatches
-                losses.entropy += entropy_loss.item() / experience.num_minibatches
-                losses.old_approx_kl += old_approx_kl.item() / experience.num_minibatches
-                losses.approx_kl += approx_kl.item() / experience.num_minibatches
-                losses.clipfrac += clipfrac.item() / experience.num_minibatches
+                losses.policy_loss += pg_loss.item() / total_minibatches
+                losses.value_loss += v_loss.item() / total_minibatches
+                losses.entropy += entropy_loss.item() / total_minibatches
+                losses.old_approx_kl += old_approx_kl.item() / total_minibatches
+                losses.approx_kl += approx_kl.item() / total_minibatches
+                losses.clipfrac += clipfrac.item() / total_minibatches
 
         if config.target_kl is not None:
             if approx_kl > config.target_kl:
@@ -380,29 +319,45 @@ def train(data):
         data.epoch += 1
 
         done_training = data.global_step >= config.total_timesteps
-        if profile.update(data) or done_training:
-            print_dashboard(config.env, data.global_step, data.epoch,
+        # TODO: beter way to get episode return update without clogging dashboard
+        # TODO: make this appear faster
+        if profile.update(data):
+            mean_and_log(data)
+            print_dashboard(config.env, data.utilization, data.global_step, data.epoch,
                 profile, data.losses, data.stats, data.msg)
-
-            if data.wandb is not None and data.global_step > 0 and time.time() - data.last_log_time > 5.0:
-                data.last_log_time = time.time()
-                data.wandb.log({
-                    '0verview/SPS': profile.SPS,
-                    '0verview/agent_steps': data.global_step,
-                    '0verview/learning_rate': data.optimizer.param_groups[0]["lr"],
-                    **{f'environment/{k}': v for k, v in data.stats.items()},
-                    **{f'losses/{k}': v for k, v in data.losses.items()},
-                    **{f'performance/{k}': v for k, v in data.profile},
-                })
+            data.stats = defaultdict(list)
 
         if data.epoch % config.checkpoint_interval == 0 or done_training:
             save_checkpoint(data)
+            data.msg = f'Checkpoint saved at update {data.epoch}'
 
-        if done_training:
-            close(data)
+def mean_and_log(data):
+    for k in list(data.stats.keys()):
+        v = data.stats[k]
+        try:
+            v = np.mean(v)
+        except:
+            del data.stats[k]
+
+        data.stats[k] = v
+
+    if data.wandb is None:
+        return
+
+    data.last_log_time = time.time()
+    data.wandb.log({
+        '0verview/SPS': data.profile.SPS,
+        '0verview/agent_steps': data.global_step,
+        '0verview/epoch': data.epoch,
+        '0verview/learning_rate': data.optimizer.param_groups[0]["lr"],
+        **{f'environment/{k}': v for k, v in data.stats.items()},
+        **{f'losses/{k}': v for k, v in data.losses.items()},
+        **{f'performance/{k}': v for k, v in data.profile},
+    })
 
 def close(data):
     data.vecenv.close()
+    data.utilization.stop()
     config = data.config
     if data.wandb is not None:
         artifact_name = f"{config.exp_id}_model"
@@ -488,14 +443,18 @@ def make_losses():
 
 class Experience:
     '''Flat tensor storage and array views for faster indexing'''
-    def __init__(self, batch_size, agents_per_batch, bptt_horizon, minibatch_size, obs_shape, obs_dtype, atn_shape,
+    def __init__(self, batch_size, bptt_horizon, minibatch_size, obs_shape, obs_dtype, atn_shape, atn_dtype,
                  cpu_offload=False, device='cuda', lstm=None, lstm_total_agents=0):
+        if minibatch_size is None:
+            minibatch_size = batch_size
+
         obs_dtype = pufferlib.pytorch.numpy_to_torch_dtype_dict[obs_dtype]
+        atn_dtype = pufferlib.pytorch.numpy_to_torch_dtype_dict[atn_dtype]
         pin = device == 'cuda' and cpu_offload
         obs_device = device if not pin else 'cpu'
         self.obs=torch.zeros(batch_size, *obs_shape, dtype=obs_dtype,
             pin_memory=pin, device=device if not pin else 'cpu')
-        self.actions=torch.zeros(batch_size, *atn_shape, dtype=int, pin_memory=pin)
+        self.actions=torch.zeros(batch_size, *atn_shape, dtype=atn_dtype, pin_memory=pin)
         self.logprobs=torch.zeros(batch_size, pin_memory=pin)
         self.rewards=torch.zeros(batch_size, pin_memory=pin)
         self.dones=torch.zeros(batch_size, pin_memory=pin)
@@ -565,12 +524,10 @@ class Experience:
         self.b_idxs_flat = self.b_idxs.reshape(
             self.num_minibatches, self.minibatch_size)
         self.sort_keys = []
-        self.ptr = 0
-        self.step = 0
         return idxs
 
     def flatten_batch(self, advantages_np):
-        advantages = torch.from_numpy(advantages_np).to(self.device)
+        advantages = torch.as_tensor(advantages_np).to(self.device)
         b_idxs, b_flat = self.b_idxs, self.b_idxs_flat
         self.b_actions = self.actions.to(self.device, non_blocking=True)
         self.b_logprobs = self.logprobs.to(self.device, non_blocking=True)
@@ -586,6 +543,35 @@ class Experience:
         self.b_dones = self.b_dones[b_idxs]
         self.b_values = self.b_values[b_flat]
         self.b_returns = self.b_advantages + self.b_values
+
+class Utilization(Thread):
+    def __init__(self, delay=1, maxlen=20):
+        super().__init__()
+        self.cpu_mem = deque(maxlen=maxlen)
+        self.cpu_util = deque(maxlen=maxlen)
+        self.gpu_util = deque(maxlen=maxlen)
+        self.gpu_mem = deque(maxlen=maxlen)
+
+        self.delay = delay
+        self.stopped = False
+        self.start()
+
+    def run(self):
+        while not self.stopped:
+            self.cpu_util.append(psutil.cpu_percent())
+            mem = psutil.virtual_memory()
+            self.cpu_mem.append(mem.active / mem.total)
+            if torch.cuda.is_available():
+                self.gpu_util.append(torch.cuda.utilization())
+                free, total = torch.cuda.mem_get_info()
+                self.gpu_mem.append(free / total)
+            else:
+                self.gpu_util.append(0)
+                self.gpu_mem.append(0)
+            time.sleep(self.delay)
+
+    def stop(self):
+        self.stopped = True
 
 def save_checkpoint(data):
     config = data.config
@@ -611,7 +597,6 @@ def save_checkpoint(data):
     state_path = os.path.join(path, 'trainer_state.pt')
     torch.save(state, state_path + '.tmp')
     os.rename(state_path + '.tmp', state_path)
-
     return model_path
 
 def try_load_checkpoint(data):
@@ -631,56 +616,63 @@ def try_load_checkpoint(data):
 def count_params(policy):
     return sum(p.numel() for p in policy.parameters() if p.requires_grad)
 
-def rollout(env_creator, env_kwargs, agent_creator, agent_kwargs,
-        model_path=None, device='cuda', verbose=True):
-    os.system('clear')
-    try:
-        env = env_creator(render_mode='rgb_array', **env_kwargs)
-    except:
-        env = env_creator(**env_kwargs)
+def rollout(env_creator, env_kwargs, policy_cls, rnn_cls, agent_creator, agent_kwargs,
+        backend, render_mode='auto', model_path=None, device='cuda'):
+
+    if render_mode != 'auto':
+        env_kwargs['render_mode'] = render_mode
+
+    # We are just using Serial vecenv to give a consistent
+    # single-agent/multi-agent API for evaluation
+    env = pufferlib.vector.make(env_creator, env_kwargs=env_kwargs, backend=backend)
 
     if model_path is None:
-        agent = agent_creator(env, **agent_kwargs)
+        agent = agent_creator(env, policy_cls, rnn_cls, agent_kwargs).to(device)
     else:
         agent = torch.load(model_path, map_location=device)
 
-    terminal = truncated = True
-    while True:
-        if terminal or truncated:
-            ob, info = env.reset()
-            state = None
-            step = 0
-            reward = 0
-            terminal = False
-            truncated = False
-            return_val = 0
-        else:
-            ob, reward, terminal, truncated, _ = env.step(action.item())
+    ob, info = env.reset()
+    driver = env.driver_env
+    os.system('clear')
+    state = None
 
-        ob = torch.tensor(ob).unsqueeze(0).to(device)
+    frames = []
+    tick = 0
+    while tick <= 1000:
+        if tick % 1 == 0:
+            render = driver.render()
+            if driver.render_mode == 'ansi':
+                print('\033[0;0H' + render + '\n')
+                time.sleep(0.05)
+            elif driver.render_mode == 'rgb_array':
+                frames.append(render)
+                import cv2
+                render = cv2.cvtColor(render, cv2.COLOR_RGB2BGR)
+                cv2.imshow('frame', render)
+                cv2.waitKey(1)
+                time.sleep(1/24)
+            elif driver.render_mode in ('human', 'raylib') and render is not None:
+                frames.append(render)
+
         with torch.no_grad():
+            ob = torch.as_tensor(ob).to(device)
             if hasattr(agent, 'lstm'):
                 action, _, _, _, state = agent(ob, state)
             else:
                 action, _, _, _ = agent(ob)
 
-        return_val += reward
+            action = action.cpu().numpy().reshape(env.action_space.shape)
 
-        render = env.render()
-        if env.render_mode == 'ansi':
-            print('\033[0;0H' + render + '\n')
-            time.sleep(0.6)
-        elif env.render_mode == 'rgb_array':
-            import cv2
-            render = cv2.cvtColor(render, cv2.COLOR_RGB2BGR)
-            cv2.imshow('frame', render)
-            cv2.waitKey(1)
-            time.sleep(1/24)
+        ob, reward = env.step(action)[:2]
+        reward = reward.mean()
+        if tick % 128 == 0:
+            print(f'Reward: {reward:.4f}, Tick: {tick}')
+        tick += 1
 
-        if verbose:
-            print(f'Step: {step} Reward: {reward:.4f} Return: {return_val:.2f}')
-
-        step += 1
+    # Save frames as gif
+    if frames:
+        import imageio
+        os.makedirs('../docker', exist_ok=True) or imageio.mimsave('../docker/eval.gif', frames, fps=15, loop=0)
 
 def seed_everything(seed, torch_deterministic):
     random.seed(seed)
@@ -688,13 +680,6 @@ def seed_everything(seed, torch_deterministic):
     if seed is not None:
         torch.manual_seed(seed)
     torch.backends.cudnn.deterministic = torch_deterministic
-
-import psutil
-import GPUtil
-
-import rich
-from rich.console import Console
-from rich.table import Table
 
 ROUND_OPEN = rich.box.Box(
     "╭──╮\n"
@@ -732,13 +717,13 @@ def duration(seconds):
     s = seconds % 60
     return f"{b2}{h}{c2}h {b2}{m}{c2}m {b2}{s}{c2}s" if h else f"{b2}{m}{c2}m {b2}{s}{c2}s" if m else f"{b2}{s}{c2}s"
 
-
 def fmt_perf(name, time, uptime):
     percent = 0 if uptime == 0 else int(100*time/uptime - 1e-5)
     return f'{c1}{name}', duration(time), f'{b2}{percent:2d}%'
 
 # TODO: Add env name to print_dashboard
-def print_dashboard(env_name, global_step, epoch, profile, losses, stats, msg, clear=False, max_stats=[0]):
+def print_dashboard(env_name, utilization, global_step, epoch,
+        profile, losses, stats, msg, clear=False, max_stats=[0]):
     console = Console()
     if clear:
         console.clear()
@@ -748,18 +733,17 @@ def print_dashboard(env_name, global_step, epoch, profile, losses, stats, msg, c
 
     table = Table(box=None, expand=True, show_header=False)
     dashboard.add_row(table)
-    cpu_percent = psutil.cpu_percent()
-    dram_percent = psutil.virtual_memory().percent
-    gpus = GPUtil.getGPUs()
-    gpu_percent = gpus[0].load * 100 if gpus else 0
-    vram_percent = gpus[0].memoryUtil * 100 if gpus else 0
+    cpu_percent = np.mean(utilization.cpu_util)
+    dram_percent = np.mean(utilization.cpu_mem)
+    gpu_percent = np.mean(utilization.gpu_util)
+    vram_percent = np.mean(utilization.gpu_mem)
     table.add_column(justify="left", width=30)
     table.add_column(justify="center", width=12)
     table.add_column(justify="center", width=12)
-    table.add_column(justify="center", width=12)
-    table.add_column(justify="right", width=12)
+    table.add_column(justify="center", width=13)
+    table.add_column(justify="right", width=13)
     table.add_row(
-        f':blowfish: {c1}PufferLib {b2}1.0.0{c1}: {env_name}',
+        f':blowfish: {c1}PufferLib {b2}1.0.0',
         f'{c1}CPU: {c3}{cpu_percent:.1f}%',
         f'{c1}GPU: {c3}{gpu_percent:.1f}%',
         f'{c1}DRAM: {c3}{dram_percent:.1f}%',
@@ -769,6 +753,7 @@ def print_dashboard(env_name, global_step, epoch, profile, losses, stats, msg, c
     s = Table(box=None, expand=True)
     s.add_column(f"{c1}Summary", justify='left', vertical='top', width=16)
     s.add_column(f"{c1}Value", justify='right', vertical='top', width=8)
+    s.add_row(f'{c2}Environment', f'{b2}{env_name}')
     s.add_row(f'{c2}Agent Steps', abbreviate(global_step))
     s.add_row(f'{c2}SPS', abbreviate(profile.SPS))
     s.add_row(f'{c2}Epoch', abbreviate(epoch))
@@ -809,8 +794,6 @@ def print_dashboard(env_name, global_step, epoch, profile, losses, stats, msg, c
     right.add_column(f"{c1}Value", justify="right", width=10)
     i = 0
     for metric, value in stats.items():
-        if 'Events/' in metric:
-            continue
         try: # Discard non-numeric values
             int(value)
         except:
@@ -819,6 +802,8 @@ def print_dashboard(env_name, global_step, epoch, profile, losses, stats, msg, c
         u = left if i % 2 == 0 else right
         u.add_row(f'{c2}{metric}', f'{b2}{value:.3f}')
         i += 1
+        if i == 30:
+            break
 
     for i in range(max_stats[0] - i):
         u = left if i % 2 == 0 else right
