@@ -14,22 +14,13 @@ import pufferlib.pytorch
 import pufferlib.spaces
 import pufferlib.models
 from pokegym.data import poke_and_type_dict, map_dict
+# torch._inductor.config.triton.cudagraph_skip_dynamic_graphs=True
 
-# torch compile debugging
 import logging
 import torch._dynamo.config as dcfg
 dcfg.verbose=True
-# dcfg.log_level = logging.DEBUG
-# dcfg.print_graph_breaks = True
-# dcfg.output_code = True
 import torch._functorch.config as fcfg
-# fcfg.debug_graphs = True
-# fcfg.log_level = logging.DEBUG
 import torch._inductor.config as icfg
-# icfg.debug = True
-# icfg.trace.enabled = True
-# import torch._C._jit_tree_views as jit_tree_views
-# jit_tree_views.debug = True
 
 
 UNIQ_RUN = Path(f'{str(uuid.uuid4())[:4]}')
@@ -57,7 +48,8 @@ class Policy(nn.Module):
         self.dtype = pufferlib.pytorch.nativize_dtype(env.emulated)
         self.actor = pufferlib.pytorch.layer_init(nn.Linear(hidden_size, env.single_action_space.n), std=0.01)
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
-        self.screen = nn.Sequential(
+
+        self.screen= nn.Sequential(
             pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 8, stride=4)),
             nn.ReLU(),
             pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),

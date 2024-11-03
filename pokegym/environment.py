@@ -182,9 +182,53 @@ class Environment:
         self.reset_count += 1
         # load_pyboy_state(self.game, self.load_last_state())
         self.reset_state()
-        self.reset_var()
+        self.load_first_state()
         options = options or {}
         info = {}
+        if self.save_video:
+            base_dir = self.s_path
+            base_dir.mkdir(parents=True, exist_ok=True)
+            full_name = Path(f'reset_{self.reset_count}').with_suffix('.mp4')
+            self.full_frame_writer = media.VideoWriter(base_dir / full_name, (144, 160), fps=60)
+            self.full_frame_writer.__enter__()
+
+        if self.inf_money:
+            r, c, map_n = ram_map.position(self.game)
+            if map_n == 7:
+                ram_map.write_mem(self.game, 0xD347, 0x09)
+
+        self.screen_memory = defaultdict(lambda: np.zeros((255, 255, 1), dtype=np.uint8))
+        self.time = 0
+        self.cut_reward = 0
+        self.event_reward = 0   
+        self.seen_pokemon_reward = 0
+        self.caught_pokemon_reward = 0
+        self.moves_obtained_reward = 0
+        self.used_cut_rew = 0
+        self.cut_coords_reward = 0
+        self.cut_tiles_reward = 0
+        self.max_level_sum = 0
+        self.seen_coords = set()
+        self.total_healing = 0
+        self.hm_count = 0
+        self.cut = 0
+        self.cut_coords = {}
+        self.cut_tiles = {}
+        self.cut_state = deque(maxlen=3)
+        self.seen_start_menu = 0
+        self.seen_pokemon_menu = 0
+        self.seen_stats_menu = 0
+        self.seen_bag_menu = 0
+        self.seen_pokemon = np.zeros(152, dtype=np.uint8)
+        self.caught_pokemon = np.zeros(152, dtype=np.uint8)
+        self.moves_obtained = {}
+        self.cut_counter = 0
+        self.last_hp = 1.0
+        self.last_party_size = 1
+        self.reward_sum_calc = 0
+        self.events = EventFlags(self.game)
+        r, c, map_n = ram_map.position(self.game)
+        self.coords = (c, r, map_n)
 
         if options.get("state", None) is not None:
             self.game.load_state(io.BytesIO(options["state"]))
@@ -309,12 +353,11 @@ class Environment:
         self.coords = (c, r, map_n)
 
     def update_pokedex(self):
-        for i in range(0xD30A - 0xD2F7):
-            caught_mem = self.game.memory[i + 0xD2F7]
-            seen_mem = self.game.memory[i + 0xD30A]
-            for j in range(8):
-                self.caught_pokemon[8*i + j] = 1 if caught_mem & (1 << j) else 0
-                self.seen_pokemon[8*i + j] = 1 if seen_mem & (1 << j) else 0  
+         num_entries = 0xD30A - 0xD2F7
+         caught_mem = np.array(self.game.memory[0xD2F7:0xD2F7 + num_entries], dtype=np.uint8)
+         seen_mem = np.array(self.game.memory[0xD30A:0xD30A + num_entries], dtype=np.uint8)
+         self.caught_pokemon = np.unpackbits(caught_mem).astype(np.uint8)
+         self.seen_pokemon = np.unpackbits(seen_mem).astype(np.uint8)
     
     def update_moves_obtained(self):
         # Scan party
@@ -440,24 +483,6 @@ class Environment:
                 exploration_reward = (0.02 * len(self.seen_coords)) 
         else:
             exploration_reward = (0.02 * len(self.seen_coords))
-        
-        
-        # # Story
-        # self.story.update()
-        # high_story_maps, low_story_maps = self.story.maps()
-        # # print(f'Low Story: {low_story_maps}\n High Story: {high_story_maps}')
-
-        # # New Exploration
-        # self.expl_high_map = high_gym_maps + high_story_maps
-        # self.expl_low_map = low_gym_maps + low_story_maps
-        # r, c, map_n = ram_map.position(self.game) # this is [y, x, z]
-        # self.seen_coords.add((r, c, map_n))
-        # if map_n in self.expl_high_map:
-        #     self.exploration_reward = (0.03 * len(self.seen_coords))
-        # elif map_n in self.expl_low_map:
-        #     self.exploration_reward = (0.01 * len(self.seen_coords))
-        # else:
-        #     self.exploration_reward = (0.02 * len(self.seen_coords))
 
         return exploration_reward
 
@@ -515,8 +540,6 @@ class Environment:
         exploration_reward = self.expl_rew()
         level_reward = self.level_rew()
         healing_reward = self.heal_rew()
-        # events = [self.events.get_event(event) for event in EVENTS]
-        # self.event_reward = sum(events)*3
 
         ram_events = [
             ram_map.silph_co(self.game), ram_map.rock_tunnel(self.game), ram_map.ssanne(self.game), 
@@ -578,30 +601,6 @@ class Environment:
                 "beat_snorlax_12": self.events.get_event('EVENT_BEAT_ROUTE12_SNORLAX'),
                 "beat_snorlax_16": self.events.get_event('EVENT_BEAT_ROUTE16_SNORLAX'),
             },
-            # "Events": self.events.event_rewards(),
-            # "Rewards": {
-            #     "Reward_Sum": self.reward_sum(),
-            #     "Exploration": self.expl_rew(),
-            #     "Level": self.level_rew(),
-            #     "Healing": self.heal_rew(),
-            #     "Event_Sum": self.event_reward,
-            #     "Cut": self.cut_reward,    
-            #     "Seen_Poke": self.seen_pokemon_reward,
-            #     "Caught_Poke": self.caught_pokemon_reward,
-            #     "Moves_Obtained": self.moves_obtained_reward,
-            #     "Used_Cut": self.used_cut_rew,
-            #     "Cut_Coords": self.cut_coords_reward,
-            #     "Cut_Tiles": self.cut_tiles_reward,
-            #     "Start_Menu": self.seen_start_menu * 0.01,
-            #     "Poke_Menu": self.seen_pokemon_menu * 0.1,
-            #     "Stats_Menu": self.seen_stats_menu * 0.1,
-            #     "Bag_Menu": self.seen_bag_menu * 0.1,
-            # },
-            # "Misc": {
-            #     "cut": self.cut,
-            #     "deaths": self.death_count,
-            #     "local_expl_rew": len(self.seen_coords)/self.max_episode_steps,
-            # },
         }
         if self.swarming:
             required_events = self.get_req_events()
