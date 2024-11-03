@@ -131,53 +131,56 @@ class Environment:
         return screen
     
     def obs_space(self):
-        if self.extra_obs:
-            self.observation_space = spaces.Dict(
-                {
-                    "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
-                    "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
-                    "flute": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "bike": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "hideout": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "tower": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "silphco": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "snorlax_12": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "snorlax_16": spaces.Box(low=0, high=1, shape=(1,), dtype=np.uint8),
-                    "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
-                })
-        else:
-            self.observation_space = spaces.Dict(
-                {
-                    "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
-                    "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
-                })
+        self.observation_space = spaces.Dict(
+            {
+                "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
+                "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
+                "in_battle": spaces.Box(low=0, high=3, shape=(1,), dtype=np.uint8),
+                "x": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
+                "y": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
+                "direction": spaces.Box(low=0, high=4, shape=(1,), dtype=np.uint8),  
+                "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
+                "events": spaces.Box(low=0, high=16, shape=(16,), dtype=np.uint8),
+            })
 
     def _get_obs(self):
         c, r, map_n = self.coords
         mmap = self.screen_memory[map_n]
         if 0 <= r <= 254 and 0 <= c <= 254:
             mmap[r, c] = 255
-        if self.extra_obs:
-            return {
-                "screen": self.render(),
-                "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
-                "flute": np.array(ram_map.read_bit(self.game, 0xD76C, 0), dtype=np.uint8),
-                "bike": np.array(ram_map.read_bit(self.game, 0xD75F, 0), dtype=np.uint8),
-                "hideout": np.array(ram_map.read_bit(self.game, 0xD81B, 7), dtype=np.uint8),
-                "tower": np.array(ram_map.read_bit(self.game, 0xD7E0, 7), dtype=np.uint8),
-                "silphco": np.array(ram_map.read_bit(self.game, 0xD838, 7), dtype=np.uint8),
-                "snorlax_12": np.array(ram_map.read_bit(self.game, 0xD7D8, 7), dtype=np.uint8),
-                "snorlax_16": np.array(ram_map.read_bit(self.game, 0xD7E0, 1), dtype=np.uint8),
-                "map_n": np.array(map_n, dtype=np.uint8),
-            }
-        else:
-            return {
-                "screen": self.render(),
-                "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
-            }
+        events = [
+            self.events.get_event('EVENT_BEAT_BROCK'),
+            self.events.get_event('EVENT_BEAT_MISTY'),
+            self.events.get_event('EVENT_BEAT_LT_SURGE'),
+            self.events.get_event('EVENT_BEAT_ERIKA'),
+            self.events.get_event('EVENT_BEAT_KOGA'),
+            self.events.get_event('EVENT_BEAT_SABRINA'),
+            self.events.get_event('EVENT_BEAT_BLAINE'),
+            self.events.get_event('EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI'),
+            ram_map.read_bit(self.game, 0xD76C, 0),
+            ram_map.read_bit(self.game, 0xD75F, 0),
+            ram_map.read_bit(self.game, 0xD81B, 7),
+            ram_map.read_bit(self.game, 0xD7E0, 7),
+            ram_map.read_bit(self.game, 0xD838, 7),
+            ram_map.read_bit(self.game, 0xD7D8, 7),
+            ram_map.read_bit(self.game, 0xD7E0, 1),
+            ram_map.read_bit(self.game, 0xD803, 0),
+        ]
+        event_array = np.array(events, dtype=np.uint16)
+        return {
+            "screen": self.render(),
+            "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
+            "in_battle": np.array(self.game.memory[0xD057] + 1, dtype=np.uint8),
+            "x": np.array(c, dtype=np.uint8),
+            "y": np.array(r, dtype=np.uint8),
+            "direction": np.array(self.game.memory[0xC109] // 4, dtype=np.uint8),
+            "map_n": np.array(map_n, dtype=np.uint8),
+            "events":  event_array,
+        }
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None):
         self.reset_count += 1
+        # load_pyboy_state(self.game, self.load_last_state())
         self.reset_state()
         self.reset_var()
         options = options or {}
@@ -209,7 +212,6 @@ class Environment:
 
         self.update_pokedex()
         self.update_moves_obtained()
-        self.hm_rew()
         self.cut_rew()
         reward = self.reward_scale * self.reward_sum()
 
@@ -259,13 +261,6 @@ class Environment:
         # print(f"Percentage of instances with hm_count = 1: {percentage:.2f}%")
         conn.close()
         return percentage
-
-    def hm_rew(self):
-        # HM reward
-        hm_count = ram_map.get_hm_count(self.game)
-        if hm_count >= 1 and self.hm_count == 0:
-            self.hm_count = 1
-        # hm_reward = hm_count * 10
 
     def reset_var(self):
         if self.save_video:
@@ -406,10 +401,10 @@ class Environment:
         r, c, map_n = ram_map.position(self.game) # this is [y, x, z]
         self.seen_coords.add((r, c, map_n))
         self.coords = (c, r, map_n)
-        # # high_gym_maps, low_gym_maps = self.gym.maps()
+        # high_gym_maps, low_gym_maps = self.gym.maps()
 
-        # # if map_n in high_gym_maps:
-        # #     exploration_reward = (0.03 * len(self.seen_coords)) 
+        # if map_n in high_gym_maps:
+        #     exploration_reward = (0.03 * len(self.seen_coords)) 
         # else:
         if not self.events.get_event('EVENT_FOUND_ROCKET_HIDEOUT'):
             if map_n in self.poketower:
@@ -520,40 +515,21 @@ class Environment:
         exploration_reward = self.expl_rew()
         level_reward = self.level_rew()
         healing_reward = self.heal_rew()
-        if self.new_events:
-            if self.time % 2 == 0:
-                events = [self.events.get_event(event) for event in EVENTS]
-                self.event_reward = sum(events)*3
-        else:
-            if self.time % 2 == 0:
-                silph = ram_map.silph_co(self.game)
-                rock_tunnel = ram_map.rock_tunnel(self.game)
-                ssanne = ram_map.ssanne(self.game)
-                mtmoon = ram_map.mtmoon(self.game)
-                routes = ram_map.routes(self.game)
-                misc = ram_map.misc(self.game)
-                snorlax = ram_map.snorlax(self.game)
-                hmtm = ram_map.hmtm(self.game)
-                bill = ram_map.bill(self.game)
-                oak = ram_map.oak(self.game)
-                towns = ram_map.towns(self.game)
-                lab = ram_map.lab(self.game)
-                mansion = ram_map.mansion(self.game)
-                safari = ram_map.safari(self.game)
-                dojo = ram_map.dojo(self.game)
-                hideout = ram_map.hideout(self.game)
-                tower = ram_map.poke_tower(self.game)
-                gym1 = ram_map.gym1(self.game)
-                gym2 = ram_map.gym2(self.game)
-                gym3 = ram_map.gym3(self.game)
-                gym4 = ram_map.gym4(self.game)
-                gym5 = ram_map.gym5(self.game)
-                gym6 = ram_map.gym6(self.game)
-                gym7 = ram_map.gym7(self.game)
-                gym8 = ram_map.gym8(self.game)
-                rival = ram_map.rival(self.game)
-                self.event_reward = sum([silph, rock_tunnel, ssanne, mtmoon, routes, misc, snorlax, hmtm, bill, oak, towns, lab, mansion, safari, dojo, hideout, tower, gym1, gym2, gym3, gym4, gym5, gym6, gym7, gym8, rival])
-            # print(f"Event Reward: {self.event_reward}")
+        # events = [self.events.get_event(event) for event in EVENTS]
+        # self.event_reward = sum(events)*3
+
+        ram_events = [
+            ram_map.silph_co(self.game), ram_map.rock_tunnel(self.game), ram_map.ssanne(self.game), 
+            ram_map.mtmoon(self.game), ram_map.routes(self.game), ram_map.misc(self.game), 
+            ram_map.snorlax(self.game), ram_map.hmtm(self.game), ram_map.bill(self.game), 
+            ram_map.oak(self.game), ram_map.towns(self.game), ram_map.lab(self.game), 
+            ram_map.mansion(self.game), ram_map.safari(self.game), ram_map.dojo(self.game), 
+            ram_map.hideout(self.game), ram_map.poke_tower(self.game), ram_map.gym1(self.game), 
+            ram_map.gym2(self.game), ram_map.gym3(self.game), ram_map.gym4(self.game), 
+            ram_map.gym5(self.game), ram_map.gym6(self.game), ram_map.gym7(self.game), 
+            ram_map.gym8(self.game), ram_map.rival(self.game)
+        ]
+        self.event_reward = sum(ram_events)
 
         self.cut_reward = self.cut * 10
         self.seen_pokemon_reward = sum(self.seen_pokemon) * self.reward_scale

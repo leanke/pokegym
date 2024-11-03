@@ -19,7 +19,7 @@ dependencies = [
     "numpy",
     "pyboy==2.4.0",
     "pufferlib[cleanrl]>=1.0.0",
-    "torch>=2.4",
+    "torch>=2.5",
     "triton>=3",
     "torchvision",
     "wandb",

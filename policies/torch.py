@@ -15,6 +15,23 @@ import pufferlib.spaces
 import pufferlib.models
 from pokegym.data import poke_and_type_dict, map_dict
 
+# torch compile debugging
+import logging
+import torch._dynamo.config as dcfg
+dcfg.verbose=True
+# dcfg.log_level = logging.DEBUG
+# dcfg.print_graph_breaks = True
+# dcfg.output_code = True
+import torch._functorch.config as fcfg
+# fcfg.debug_graphs = True
+# fcfg.log_level = logging.DEBUG
+import torch._inductor.config as icfg
+# icfg.debug = True
+# icfg.trace.enabled = True
+# import torch._C._jit_tree_views as jit_tree_views
+# jit_tree_views.debug = True
+
+
 UNIQ_RUN = Path(f'{str(uuid.uuid4())[:4]}')
 
 class Recurrent(pufferlib.models.LSTMWrapper):
@@ -32,84 +49,51 @@ class Recurrent(pufferlib.models.LSTMWrapper):
 
     
 class Policy(nn.Module):
-    def __init__(self, env, *args, framestack=2, flat_size=64*5*6, input_size=512, hidden_size=512, output_size=512, channels_last=True, downsample=1, **kwargs): #64*6*6+90
+    def __init__(self, env, *args, framestack=2, flat_size=64*5*6 + 25, input_size=512, hidden_size=512, output_size=512, channels_last=True, downsample=1, **kwargs): #64*6*6+90
         super().__init__()
         self.save_table = True
         self.channels_last = channels_last
         self.downsample = downsample
-        self.flat_size = flat_size
         self.dtype = pufferlib.pytorch.nativize_dtype(env.emulated)
         self.actor = pufferlib.pytorch.layer_init(nn.Linear(hidden_size, env.single_action_space.n), std=0.01)
         self.value_fn = pufferlib.pytorch.layer_init(nn.Linear(output_size, 1), std=1)
-        self.extra_obs = env.unwrapped.env.extra_obs # env.unwrapped is GymnasiumPufferEnv
-        if self.extra_obs:
-            self.flat_size = self.flat_size + 11 #+ 144
-        self.add_boey_obs = env.unwrapped.env.add_boey_obs
-        if self.add_boey_obs:
-            self.boey_nets()
-            self.flat_size = self.flat_size + 150
-        self.thatguys_cnn = env.unwrapped.env.thatguys_cnn
-        if self.thatguys_cnn:
-            self.flat_size = self.flat_size + 1664 + 1024
-            self.screen= nn.Sequential(
-                pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 3, stride=2)),
-                nn.ReLU(),
-                pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 3, stride=2)),
-                nn.ReLU(),
-                pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=2)),
-                nn.ReLU(),
-            )
-        else:
-            self.screen = nn.Sequential(
-                pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 8, stride=4)),
-                nn.ReLU(),
-                pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
-                nn.ReLU(),
-                pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=1)),
-                nn.ReLU(),
-            )
-        self.flatten = nn.Flatten()
+        self.screen = nn.Sequential(
+            pufferlib.pytorch.layer_init(nn.Conv2d(framestack, 32, 8, stride=4)),
+            nn.ReLU(),
+            pufferlib.pytorch.layer_init(nn.Conv2d(32, 64, 4, stride=2)),
+            nn.ReLU(),
+            pufferlib.pytorch.layer_init(nn.Conv2d(64, 64, 3, stride=1)),
+            nn.ReLU(),
+            nn.Flatten()
+        )
         self.map_embedding = torch.nn.Embedding(248, 4, dtype=torch.float32)
-        self.poke_id = nn.Embedding(190, 6, dtype=torch.float32)
-        self.poke_type = nn.Embedding(15, 6, dtype=torch.float32)
-        self.pokemon_embedding = nn.Linear(in_features=38, out_features=16) # input: id, status, type1, type2, stats_level # 8+8+8+8+6 # output: 16?
-        self.activations = []
-        self.counter = 0
-        self.linear= nn.Sequential(
-            pufferlib.pytorch.layer_init(nn.Linear(self.flat_size, hidden_size)),
-            nn.ReLU(),)
+        self.event_fc = nn.Sequential(
+            pufferlib.pytorch.layer_init(nn.Linear(16, 16)),
+            nn.ReLU(),
+         )
+        self.position_fc = nn.Sequential(
+            pufferlib.pytorch.layer_init(nn.Linear(7, 4)),
+            nn.ReLU(),
+        )
+        self.enc_lin = nn.Sequential(
+            pufferlib.pytorch.layer_init(nn.Linear(flat_size, hidden_size)),
+            nn.ReLU(),
+         )
 
     def encode_observations(self, observations):
         observation = pufferlib.pytorch.nativize_tensor(observations, self.dtype)
+        
         screens = torch.cat([observation['screen'], observation['fixed_window'],], dim=-1)
+        screen = screens.permute(0, 3, 1, 2)
+        cnn = self.screen(screen.float() / 255.0) # screen and fixed_window stacked
+        map = self.map_embedding(observation["map_n"].long()).squeeze(1) # map_id embedding
+        pos_cat = torch.cat((map, observation["x"].float(), observation["y"].float(), observation["direction"].float()), dim=-1) # map embedding, x, y, direction
+        pos = self.position_fc(pos_cat) # position fc
+        event = self.event_fc(observation["events"].float()) # events: badges and bike, hideout, tower, silphco, snorlax_12, snorlax_16, got_flute
+        full_cat = torch.cat((cnn, map, event, pos, observation["in_battle"].float()), dim=-1) # final cat also includes in_battle
+        final_out = self.enc_lin(full_cat) # final linear layer
 
-        if self.channels_last:
-            screen = screens.permute(0, 3, 1, 2)
-        if self.downsample > 1:
-            screen = screens[:, :, ::self.downsample, ::self.downsample]
-
-        if self.extra_obs:
-            cat = torch.cat((
-                self.flatten(self.screen(screen.float() / 255.0)).squeeze(1),
-                self.map_embedding(observation["map_n"].long()).squeeze(1),
-                observation["flute"].float(),
-                observation["bike"].float(),
-                observation["hideout"].float(),
-                observation["tower"].float(),
-                observation["silphco"].float(),
-                observation["snorlax_12"].float(),
-                observation["snorlax_16"].float(),
-            ),dim=-1,)
-        else:
-            cat = self.screen(screen.float() / 255.0),
-
-        if self.add_boey_obs:
-                boey_obs = self.boey_obs(observation)
-                cat = torch.cat([cat, boey_obs], dim=-1)
-
-        self.counter += 1
-
-        return self.linear(cat), None
+        return final_out, None
 
     def decode_actions(self, flat_hidden, lookup, concat=None):
         action = self.actor(flat_hidden)
@@ -185,131 +169,3 @@ class Policy(nn.Module):
             plt.tight_layout()
             plt.savefig(plot_path, dpi=dpi, bbox_inches='tight', pad_inches=0)
             plt.close()
-
-    def boey_obs(self, observation):
-        if self.add_boey_obs:
-            embedded_poke_move_ids = self.poke_move_ids_embedding(observation['poke_move_ids'].to(torch.int))
-            poke_move_pps = observation['poke_move_pps']
-            poke_moves = torch.cat([embedded_poke_move_ids, poke_move_pps], dim=-1)
-            poke_moves = self.move_fc_relu(poke_moves)
-            poke_moves = self.move_max_pool(poke_moves).squeeze(-2)
-            embedded_poke_type_ids = self.poke_type_ids_embedding(observation['poke_type_ids'].to(torch.int))
-            poke_types = torch.sum(embedded_poke_type_ids, dim=-2)
-            embedded_poke_ids = self.poke_ids_embedding(observation['poke_ids'].to(torch.int))
-            poke_ids = embedded_poke_ids
-            poke_stats = observation['poke_all']
-            pokemon_concat = torch.cat([poke_moves, poke_types, poke_ids, poke_stats], dim=-1)
-            pokemon_features = self.poke_fc_relu(pokemon_concat)
-            party_pokemon_features = pokemon_features[..., :6, :]
-            poke_party_head = self.poke_party_head(party_pokemon_features)
-            poke_party_head = self.poke_party_head_max_pool(poke_party_head).squeeze(-2)
-            opp_pokemon_features = pokemon_features[..., 6:, :]
-            poke_opp_head = self.poke_opp_head(opp_pokemon_features)
-            poke_opp_head = self.poke_opp_head_max_pool(poke_opp_head).squeeze(-2)
-            embedded_item_ids = self.item_ids_embedding(observation['item_ids'].to(torch.int))
-            item_quantity = observation['item_quantity']
-            item_concat = torch.cat([embedded_item_ids, item_quantity], dim=-1)
-            item_features = self.item_ids_fc_relu(item_concat)
-            item_features = self.item_ids_max_pool(item_features).squeeze(-2)
-            embedded_event_ids = self.event_ids_embedding(observation['event_ids'].to(torch.int))
-            event_step_since = observation['event_step_since']
-            event_concat = torch.cat([embedded_event_ids, event_step_since], dim=-1)
-            event_features = self.event_ids_fc_relu(event_concat)
-            event_features = self.event_ids_max_pool(event_features).squeeze(-2)
-            vector = observation['vector']
-
-            all_features = torch.cat([poke_party_head, poke_opp_head, item_features, event_features, vector], dim=-1)
-
-        return all_features
-    
-    def boey_nets(self):
-        self.poke_move_ids_embedding = nn.Embedding(167, 8, padding_idx=0)
-        self.move_fc_relu = nn.Sequential(
-            nn.Linear(10, 8),
-            nn.ReLU(),
-            nn.Linear(8, 8),
-            nn.ReLU(),
-        )
-        self.move_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
-        self.poke_type_ids_embedding = nn.Embedding(17, 8, padding_idx=0)
-        self.poke_ids_embedding = nn.Embedding(192, 16, padding_idx=0)
-        self.poke_fc_relu = nn.Sequential(
-            nn.Linear(63, 32),
-            nn.ReLU(),
-            nn.Linear(32, 32),
-            nn.ReLU(),
-        )
-        self.poke_party_head = nn.Sequential(
-            nn.Linear(32, 32),
-            nn.ReLU(),
-            nn.Linear(32, 32),
-        )
-        self.poke_party_head_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 32))
-        self.poke_opp_head = nn.Sequential(
-            nn.Linear(32, 32),
-            nn.ReLU(),
-            nn.Linear(32, 32),
-        )
-        self.poke_opp_head_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 32))
-        self.item_ids_embedding = nn.Embedding(256, 16, padding_idx=0)  # (20, 16)
-        self.item_ids_fc_relu = nn.Sequential(
-            nn.Linear(17, 16),
-            nn.ReLU(),
-            nn.Linear(16, 16),
-            nn.ReLU(),
-        )
-        self.item_ids_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
-        self.event_ids_embedding = nn.Embedding(2570, 16, padding_idx=0)  # (20, )
-        self.event_ids_fc_relu = nn.Sequential(
-            nn.Linear(17, 16),
-            nn.ReLU(),
-            nn.Linear(16, 16),
-            nn.ReLU(),
-        )
-        self.event_ids_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
-        self._features_dim = 406
-        self.poke_move_ids_embedding = nn.Embedding(167, 8, padding_idx=0)
-        self.move_fc_relu = nn.Sequential(
-            nn.Linear(10, 8),
-            nn.ReLU(),
-            nn.Linear(8, 8),
-            nn.ReLU(),
-        )
-        self.move_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
-        self.poke_type_ids_embedding = nn.Embedding(17, 8, padding_idx=0)
-        self.poke_ids_embedding = nn.Embedding(192, 16, padding_idx=0)
-        self.poke_fc_relu = nn.Sequential(
-            nn.Linear(63, 32),
-            nn.ReLU(),
-            nn.Linear(32, 32),
-            nn.ReLU(),
-        )
-        self.poke_party_head = nn.Sequential(
-            nn.Linear(32, 32),
-            nn.ReLU(),
-            nn.Linear(32, 32),
-        )
-        self.poke_party_head_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 32))
-        self.poke_opp_head = nn.Sequential(
-            nn.Linear(32, 32),
-            nn.ReLU(),
-            nn.Linear(32, 32),
-        )
-        self.poke_opp_head_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 32))
-        self.item_ids_embedding = nn.Embedding(256, 16, padding_idx=0)  # (20, 16)
-        self.item_ids_fc_relu = nn.Sequential(
-            nn.Linear(17, 16),
-            nn.ReLU(),
-            nn.Linear(16, 16),
-            nn.ReLU(),
-        )
-        self.item_ids_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
-        self.event_ids_embedding = nn.Embedding(2570, 16, padding_idx=0)  # (20, )
-        self.event_ids_fc_relu = nn.Sequential(
-            nn.Linear(17, 16),
-            nn.ReLU(),
-            nn.Linear(16, 16),
-            nn.ReLU(),
-        )
-        self.event_ids_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
-        self._features_dim = 406
