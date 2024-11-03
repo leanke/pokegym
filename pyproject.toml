@@ -18,7 +18,7 @@ dependencies = [
     "opencv-python",
     "numpy",
     "pyboy==2.4.0",
-    "pufferlib[cleanrl]@git+https://github.com/PufferAI/PufferLib.git#egg=dev",
+    "pufferlib[cleanrl]>=1.0.0",
     "torch>=2.5",
     "triton>=3",
     "torchvision",

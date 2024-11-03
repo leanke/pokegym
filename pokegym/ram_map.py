@@ -734,7 +734,6 @@ def used_cut(game):
 def write_mem(game, addr, value):
     game.memory[addr] = value
 
-
 def badges(game):
     badges = game.memory[BADGE_1_ADDR]
     return bit_count(badges)
