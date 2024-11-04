@@ -140,7 +140,7 @@ class Environment:
                 "y": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
                 "direction": spaces.Box(low=0, high=4, shape=(1,), dtype=np.uint8),  
                 "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
-                "events": spaces.Box(low=0, high=16, shape=(16,), dtype=np.uint8),
+                "events": spaces.Box(low=0, high=1, shape=(16,), dtype=np.uint8),
             })
 
     def _get_obs(self):

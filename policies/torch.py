@@ -79,7 +79,10 @@ class Policy(nn.Module):
         screen = screens.permute(0, 3, 1, 2)
         cnn = self.screen(screen.float() / 255.0) # screen and fixed_window stacked
         map = self.map_embedding(observation["map_n"].long()).squeeze(1) # map_id embedding
-        pos_cat = torch.cat((map, observation["x"].float(), observation["y"].float(), observation["direction"].float()), dim=-1) # map embedding, x, y, direction
+        x = observation["x"].float() / 255.0
+        y = observation["y"].float() / 255.0
+        direction = observation["direction"].float() / 4.0
+        pos_cat = torch.cat((map, x, y, direction), dim=-1) # map embedding, x, y, direction
         pos = self.position_fc(pos_cat) # position fc
         event = self.event_fc(observation["events"].float()) # events: badges and bike, hideout, tower, silphco, snorlax_12, snorlax_16, got_flute
         full_cat = torch.cat((cnn, map, event, pos, observation["in_battle"].float()), dim=-1) # final cat also includes in_battle
