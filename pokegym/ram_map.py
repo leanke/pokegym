@@ -1,4 +1,5 @@
 from pokegym import data
+import numpy as np
 
 HP_ADDR = [0xD16C, 0xD198, 0xD1C4, 0xD1F0, 0xD21C, 0xD248]
 MAX_HP_ADDR = [0xD18D, 0xD1B9, 0xD1E5, 0xD211, 0xD23D, 0xD269]
@@ -13,6 +14,23 @@ WCUTTILE = 0xCD4D # 61 if Cut used; 0 default. resets to default on map_n change
 MONEY_ADDR_1 = 0xD347
 MONEY_ADDR_100 = 0xD348
 MONEY_ADDR_10000 = 0xD349
+TYPE_DICT = {
+        0: 0,
+        1: 1,
+        2: 2,
+        3: 3,
+        4: 4,
+        5: 5,
+        7: 6,
+        8: 7,
+        20: 8,
+        21: 9,
+        22: 10,
+        23: 11,
+        24: 12,
+        25: 13,
+        26: 14,
+}
 
 GYM_LEADER = 5
 GYM_TRAINER = 2
@@ -647,33 +665,72 @@ def op_poke(game):
        return [0,0,0,0,0,0,0,0,0]
     else:
         return [id, type_1, type_2, level, max_hp, attack, defense, speed, special] #  status,
-   
-def read_pokemon(game, start_addr):
-    type_dict = {
-            0: 0,
-            1: 1,
-            2: 2,
-            3: 3,
-            4: 4,
-            5: 5,
-            7: 6,
-            8: 7,
-            20: 8,
-            21: 9,
-            22: 10,
-            23: 11,
-            24: 12,
-            25: 13,
-            26: 14,
-            }
-    poke_id = game.memory[start_addr]
-    if poke_id == 0:
-        poke_type_1 = 0
-    else:
-        raw_type1 = game.memory[start_addr + 0x05]
-        poke_type_1 = type_dict[raw_type1]
-    # poke_type_2 = game.memory[start_addr + 0x06)
-    return poke_id, poke_type_1 #, poke_type_2
+
+def party_obs(game, addr_list):
+    observation = []
+    
+    for start_addr in addr_list:
+        poke_features = []
+        poke_id = game.memory[start_addr]
+        poke_features.append(poke_id)
+        base_addr = start_addr
+        raw_type1 = game.memory[base_addr + 0x05]
+        poke_type_1 = TYPE_DICT[raw_type1]
+        poke_features.append(poke_type_1)
+        current_hp = read_uint16(game, base_addr + 0x01)
+        max_hp = read_uint16(game, base_addr + 0x22)
+        hp_percent = current_hp / max_hp * 100 if max_hp != 0 else 0
+        poke_features.append(hp_percent)
+        status = game.memory[base_addr + 0x04]
+        poke_features.append(status)
+        moves = game.memory[base_addr + 0x08: base_addr + 0x0C]
+        poke_features.extend(moves)
+        pp_values = game.memory[base_addr + 0x1D: base_addr + 0x21]
+        poke_features.extend(pp_values)
+        level = game.memory[base_addr + 0x21]
+        poke_features.append(level)
+        stats = [read_uint16(game, base_addr + offset) for offset in range(0x24, 0x2C, 2)]
+        poke_features.extend(stats)
+        observation.append(poke_features)
+    return np.array(observation, dtype=np.uint32) # (6, 17)
+
+def read_pokemon(game, addr_list):
+    id_list = []
+    type1_list = []
+    level_list = []
+    status_list = []
+    hp_list = []
+    move_list = []
+    pp_list = []
+    attack_list = []
+    defense_list = []
+    speed_list = []
+    special_list = []
+    for start_addr in addr_list:
+        poke_id = game.memory[start_addr]
+        id_list.append(poke_id)
+        base_addr = start_addr
+        raw_type1 = game.memory[base_addr + 0x05]
+        poke_type_1 = TYPE_DICT[raw_type1]
+        type1_list.append(poke_type_1)
+        current_hp = read_uint16(game, base_addr + 0x01)
+        max_hp = read_uint16(game, base_addr + 0x22)
+        hp_percent = current_hp / max_hp * 100 if max_hp != 0 else 0
+        hp_list.append(hp_percent)
+        status = game.memory[base_addr + 0x04]
+        status_list.append(status)
+        moves = game.memory[base_addr + 0x08: base_addr + 0x0C]
+        move_list.append(moves)
+        pp_values = game.memory[base_addr + 0x1D: base_addr + 0x21]
+        pp_list.append(pp_values)
+        level = game.memory[base_addr + 0x21]
+        level_list.append(level)
+        stats = [read_uint16(game, base_addr + offset) for offset in range(0x24, 0x2C, 2)]
+        attack_list.append(stats[0])
+        defense_list.append(stats[1])
+        speed_list.append(stats[2])
+        special_list.append(stats[3])
+    return id_list, type1_list, level_list, hp_list, move_list, pp_list, attack_list, defense_list, speed_list, special_list
 
 def get_hm_count(game):
     hm_ids = [0xC4, 0xC5, 0xC6, 0xC7, 0xC8]

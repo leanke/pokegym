@@ -141,6 +141,7 @@ class Environment:
                 "direction": spaces.Box(low=0, high=4, shape=(1,), dtype=np.uint8),  
                 "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
                 "events": spaces.Box(low=0, high=1, shape=(16,), dtype=np.uint8),
+                "pokemon": spaces.Box(low=0, high=716, shape=(6,17), dtype=np.uint32),
             })
 
     def _get_obs(self):
@@ -166,7 +167,9 @@ class Environment:
             ram_map.read_bit(self.game, 0xD7E0, 1),
             ram_map.read_bit(self.game, 0xD803, 0),
         ]
-        event_array = np.array(events, dtype=np.uint16)
+        event_array = np.array(events, dtype=np.uint8)
+        mon_list = [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247]
+        party_array = ram_map.party_obs(self.game, mon_list)
         return {
             "screen": self.render(),
             "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
@@ -176,6 +179,7 @@ class Environment:
             "direction": np.array(self.game.memory[0xC109] // 4, dtype=np.uint8),
             "map_n": np.array(map_n, dtype=np.uint8),
             "events":  event_array,
+            "pokemon": party_array
         }
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None):
@@ -204,6 +208,10 @@ class Environment:
         self.seen_pokemon_reward = 0
         self.caught_pokemon_reward = 0
         self.moves_obtained_reward = 0
+        self.level_reward = 0
+        self.healing_reward = 0
+        self.exploration_reward = 0
+        self.that_guy = 0
         self.used_cut_rew = 0
         self.cut_coords_reward = 0
         self.cut_tiles_reward = 0
@@ -449,15 +457,10 @@ class Environment:
         # if map_n in high_gym_maps:
         #     exploration_reward = (0.03 * len(self.seen_coords)) 
         # else:
-        if not self.events.get_event('EVENT_FOUND_ROCKET_HIDEOUT'):
+        if not self.events.get_event('EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI'):
             if map_n in self.poketower:
                 exploration_reward = 0
-            elif map_n == 135:
-                exploration_reward = (0.03 * len(self.seen_coords)) 
-            else:
-                exploration_reward = (0.02 * len(self.seen_coords))
-        elif not self.events.get_event('EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI') and self.events.get_event('EVENT_FOUND_ROCKET_HIDEOUT'):
-            if map_n in self.pokehideout:
+            elif map_n in self.pokehideout:
                 exploration_reward = (0.03 * len(self.seen_coords))
             else:
                 exploration_reward = (0.02 * len(self.seen_coords))
@@ -537,9 +540,9 @@ class Environment:
             self.cut_counter += 1
 
     def reward_sum(self):
-        exploration_reward = self.expl_rew()
-        level_reward = self.level_rew()
-        healing_reward = self.heal_rew()
+        self.exploration_reward = self.expl_rew()
+        self.level_reward = self.level_rew()
+        self.healing_reward = self.heal_rew()
 
         ram_events = [
             ram_map.silph_co(self.game), ram_map.rock_tunnel(self.game), ram_map.ssanne(self.game), 
@@ -565,11 +568,11 @@ class Environment:
         pokemon_menu = self.seen_pokemon_menu * 0.1
         stats_menu = self.seen_stats_menu * 0.1
         bag_menu = self.seen_bag_menu * 0.1
-        that_guy = (start_menu + pokemon_menu + stats_menu + bag_menu ) / 2
+        self.that_guy = (start_menu + pokemon_menu + stats_menu + bag_menu ) / 2
         self.reward_sum_calc = (
-            + level_reward
-            + healing_reward
-            + exploration_reward 
+            + self.level_reward
+            + self.healing_reward
+            + self.exploration_reward 
             + self.cut_reward
             + self.event_reward     
             + self.seen_pokemon_reward
@@ -578,7 +581,7 @@ class Environment:
             + self.used_cut_rew
             + self.cut_coords_reward
             + self.cut_tiles_reward
-            + that_guy
+            + self.that_guy
         )
         return self.reward_sum_calc
     
@@ -601,6 +604,21 @@ class Environment:
                 "beat_snorlax_12": self.events.get_event('EVENT_BEAT_ROUTE12_SNORLAX'),
                 "beat_snorlax_16": self.events.get_event('EVENT_BEAT_ROUTE16_SNORLAX'),
             },
+            # "Reward_percent": {
+            #     "total_reward_sum": self.reward_sum_calc,
+            #     "level_percent": (self.level_reward/self.reward_sum_calc)*100,
+            #     "healing_percent": (self.healing_reward/self.reward_sum_calc)*100,
+            #     "exploration_percent": (self.exploration_reward/self.reward_sum_calc)*100,
+            #     "learned_cut_percent": (self.cut_reward/self.reward_sum_calc)*100,
+            #     "event_percent": (self.event_reward/self.reward_sum_calc)*100,
+            #     "seen_pokemon_percent": (self.seen_pokemon_reward/self.reward_sum_calc)*100,
+            #     "caught_pokemon_percent": (self.caught_pokemon_reward/self.reward_sum_calc)*100,
+            #     "moves_obtained_percent": (self.moves_obtained_reward/self.reward_sum_calc)*100,
+            #     "used_cut_percent": (self.used_cut_rew/self.reward_sum_calc)*100,
+            #     "cut_coords_percent": (self.cut_coords_reward/self.reward_sum_calc)*100,
+            #     "cut_tiles_percent": (self.cut_tiles_reward/self.reward_sum_calc)*100,
+            #     "menu_percent": (self.that_guy/self.reward_sum_calc)*100,
+            # },
         }
         if self.swarming:
             required_events = self.get_req_events()
