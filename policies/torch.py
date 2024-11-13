@@ -76,6 +76,7 @@ class Policy(nn.Module):
         self.pokemon_fc = nn.Sequential(
             pufferlib.pytorch.layer_init(nn.Linear(38, 32)),
             nn.ReLU(),
+            nn.Flatten(),
         )
         self.party_fc = nn.Sequential(
             pufferlib.pytorch.layer_init(nn.Linear(192, 192)),
@@ -89,35 +90,29 @@ class Policy(nn.Module):
     def encode_observations(self, observations):
         observation = pufferlib.pytorch.nativize_tensor(observations, self.dtype)
 
-        pokemon = observation["pokemon"].contiguous() # observation["pokemon"] is (32,6,17) (batch, mon, features)
-        mon_data = []
-        for i in range(6):
-            id_embed = self.poke_id(pokemon[:, i, 0].unsqueeze(-1).long()).squeeze(1)
-            poke_type_1 = self.poke_type(pokemon[:, i, 1].unsqueeze(-1).long()).squeeze(1)
-            hp = pokemon[:, i, 2].unsqueeze(-1).float() / 100.0
-            status_embed = self.status(pokemon[:, i, 3].unsqueeze(-1).long()).squeeze(1)
-            move_embed_1 = self.move(pokemon[:, i, 4].unsqueeze(-1).long())
-            move_embed_2 = self.move(pokemon[:, i, 5].unsqueeze(-1).long())
-            move_embed_3 = self.move(pokemon[:, i, 6].unsqueeze(-1).long())
-            move_embed_4 = self.move(pokemon[:, i, 7].unsqueeze(-1).long())
-            level = pokemon[:, i, 12].unsqueeze(-1).float() / 100.0
-            moves = torch.cat([move_embed_1, move_embed_2, move_embed_3, move_embed_4], dim=-1)
-            move_pp = torch.cat([pokemon[:, i, 8].unsqueeze(-1).float(), 
-                                 pokemon[:, i, 9].unsqueeze(-1).float(), 
-                                 pokemon[:, i, 10].unsqueeze(-1).float(), 
-                                 pokemon[:, i, 11].unsqueeze(-1).float()], dim=-1)
-            pp_norm = move_pp / 100.0
-            stats = torch.cat([pokemon[:, i, 13].unsqueeze(-1).float(), 
-                               pokemon[:, i, 14].unsqueeze(-1).float(), 
-                               pokemon[:, i, 15].unsqueeze(-1).float(), 
-                               pokemon[:, i, 16].unsqueeze(-1).float()], dim=-1)
-            stats_out = self.stat_fc(stats.float() / 716.0)
-            mon = torch.cat([id_embed, poke_type_1, moves.squeeze(1), level, status_embed, hp, pp_norm, stats_out], dim=-1)
-            mon_out = self.pokemon_fc(mon) # 38 per mon?
-            mon_data.append(mon_out)
-        mon_cat = torch.cat(mon_data, dim=-1)
-        party_out = self.party_fc(mon_cat)
-
+        id_embed = self.poke_id(observation["pokemon"][:, :, 0].long()).squeeze(2)
+        poke_type_1 = self.poke_type(observation["pokemon"][:, :, 1].long()).squeeze(2)
+        hp = observation["pokemon"][:, :, 2].unsqueeze(-1).float() / 100.0
+        status_embed = self.status(observation["pokemon"][:, :, 3].long()).squeeze(2)
+        move_embed_1 = self.move(observation["pokemon"][:, :, 4].long())
+        move_embed_2 = self.move(observation["pokemon"][:, :, 5].long())
+        move_embed_3 = self.move(observation["pokemon"][:, :, 6].long())
+        move_embed_4 = self.move(observation["pokemon"][:, :, 7].long())
+        level = observation["pokemon"][:, :, 12].unsqueeze(-1).float() / 100.0
+        moves = torch.cat([move_embed_1, move_embed_2, move_embed_3, move_embed_4], dim=-1)
+        move_pp = torch.cat([observation["pokemon"][:, :, 8].unsqueeze(-1).float(), 
+                                observation["pokemon"][:, :, 9].unsqueeze(-1).float(), 
+                                observation["pokemon"][:, :, 10].unsqueeze(-1).float(), 
+                                observation["pokemon"][:, :, 11].unsqueeze(-1).float()], dim=-1)
+        pp_norm = move_pp / 100.0
+        stats = torch.cat([observation["pokemon"][:, :, 13].unsqueeze(-1).float(), 
+                            observation["pokemon"][:, :, 14].unsqueeze(-1).float(), 
+                            observation["pokemon"][:, :, 15].unsqueeze(-1).float(), 
+                            observation["pokemon"][:, :, 16].unsqueeze(-1).float()], dim=-1)
+        stats_out = self.stat_fc(stats / 716.0)
+        mon = torch.cat([id_embed, poke_type_1, moves, level, status_embed, hp, pp_norm, stats_out], dim=-1)
+        party = self.pokemon_fc(mon)
+        party_out = self.party_fc(party)
 
         screens = torch.cat([observation['screen'], observation['fixed_window'],], dim=-1)
         screen = screens.permute(0, 3, 1, 2)
