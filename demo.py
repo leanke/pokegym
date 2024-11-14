@@ -41,11 +41,9 @@ def make_policy(env, policy_cls, rnn_cls, args):
     policy = policy_cls(env, **args['policy'])
     
     if rnn_cls.__name__ == "Gru":
-        print("Using GruNet")
         policy = rnn_cls(env, policy, **args['rnn'])
         policy = GruPolicy(policy)
     elif rnn_cls.__name__ == "Lstm":
-        print("Using LstmNet")
         policy = rnn_cls(env, policy, **args['rnn'])
         policy = LstmPolicy(policy)
     else:

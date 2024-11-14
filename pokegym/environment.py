@@ -141,7 +141,7 @@ class Environment:
                 "direction": spaces.Box(low=0, high=4, shape=(1,), dtype=np.uint8),  
                 "map_n": spaces.Box(low=0, high=250, shape=(1,), dtype=np.uint8),
                 "events": spaces.Box(low=0, high=1, shape=(16,), dtype=np.uint8),
-                "pokemon": spaces.Box(low=0, high=716, shape=(6,17), dtype=np.uint32),
+                # "pokemon": spaces.Box(low=0, high=716, shape=(6,17), dtype=np.uint32),
             })
 
     def _get_obs(self):
@@ -168,8 +168,8 @@ class Environment:
             ram_map.read_bit(self.game, 0xD803, 0),
         ]
         event_array = np.array(events, dtype=np.uint8)
-        mon_list = [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247]
-        party_array = ram_map.party_obs(self.game, mon_list)
+        # mon_list = [0xD16B, 0xD197, 0xD1C3, 0xD1EF, 0xD21B, 0xD247]
+        # party_array = ram_map.party_obs(self.game, mon_list)
         return {
             "screen": self.render(),
             "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
@@ -179,7 +179,7 @@ class Environment:
             "direction": np.array(self.game.memory[0xC109] // 4, dtype=np.uint8),
             "map_n": np.array(map_n, dtype=np.uint8),
             "events":  event_array,
-            "pokemon": party_array
+            # "pokemon": party_array
         }
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None):

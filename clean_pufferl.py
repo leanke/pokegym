@@ -39,8 +39,14 @@ def create(config, vecenv, policy, optimizer=None, wandb=None):
     losses = make_losses()
 
     utilization = Utilization()
+    if hasattr(policy, 'gru'):
+        rnn_type = 'GRU'
+    elif hasattr(policy, 'lstm'):
+        rnn_type = 'LSTM'
+    else:
+        rnn_type = 'None'
     msg = f'Model Size: {abbreviate(count_params(policy))} parameters'
-    print_dashboard(config.env, utilization, 0, 0, profile, losses, {}, msg, clear=True)
+    print_dashboard(config.env, utilization, 0, 0, profile, losses, {}, msg, rnn_type, clear=True)
 
     vecenv.async_reset(config.seed)
     obs_shape = vecenv.single_observation_space.shape
@@ -77,6 +83,7 @@ def create(config, vecenv, policy, optimizer=None, wandb=None):
         epoch=0,
         stats=defaultdict(list),
         msg=msg,
+        rnn_type=rnn_type,
         last_log_time=0,
         utilization=utilization,
     )
@@ -335,7 +342,7 @@ def train(data):
         if profile.update(data):
             mean_and_log(data)
             print_dashboard(config.env, data.utilization, data.global_step, data.epoch,
-                profile, data.losses, data.stats, data.msg)
+                profile, data.losses, data.stats, data.msg, data.rnn_type)
             data.stats = defaultdict(list)
 
         if data.epoch % config.checkpoint_interval == 0 or done_training:
@@ -739,7 +746,7 @@ def fmt_perf(name, time, uptime):
 
 # TODO: Add env name to print_dashboard
 def print_dashboard(env_name, utilization, global_step, epoch,
-        profile, losses, stats, msg, clear=False, max_stats=[0]):
+        profile, losses, stats, msg, rnn_type, clear=False, max_stats=[0]):
     console = Console()
     if clear:
         console.clear()
@@ -829,7 +836,7 @@ def print_dashboard(env_name, utilization, global_step, epoch,
 
     table = Table(box=None, expand=True, pad_edge=False)
     dashboard.add_row(table)
-    table.add_row(f' {c1}Message: {c2}{msg}')
+    table.add_row(f' {c1}Message: {c2}{msg}    {c1}RNN: {c2}{rnn_type}')
 
     with console.capture() as capture:
         console.print(dashboard)
