@@ -12,7 +12,6 @@ from pdb import set_trace as T
 import pufferlib
 import pufferlib.utils
 import pufferlib.vector
-import pufferlib.frameworks.cleanrl
 
 from rich_argparse import RichHelpFormatter
 from rich.console import Console
@@ -27,7 +26,7 @@ from wrappers.async_io import AsyncWrapper
 import pufferlib.emulation
 import pufferlib.postprocess
 
-from policies import LstmPolicy, GruPolicy
+from policies import LstmPolicy, GruPolicy, CRLPolicy
 
 
 
@@ -40,16 +39,17 @@ import clean_pufferl
    
 def make_policy(env, policy_cls, rnn_cls, args):
     policy = policy_cls(env, **args['policy'])
-    if rnn_cls == "GruNet":
+    
+    if rnn_cls.__name__ == "Gru":
         print("Using GruNet")
         policy = rnn_cls(env, policy, **args['rnn'])
         policy = GruPolicy(policy)
-    elif rnn_cls == "LstmNet":
+    elif rnn_cls.__name__ == "Lstm":
         print("Using LstmNet")
         policy = rnn_cls(env, policy, **args['rnn'])
         policy = LstmPolicy(policy)
     else:
-        policy = pufferlib.frameworks.cleanrl.Policy(policy)
+        policy = CRLPolicy(policy)
 
     return policy.to(args['train']['device'])
 

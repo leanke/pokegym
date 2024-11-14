@@ -113,9 +113,9 @@ def evaluate(data):
                 actions, logprob, _, value, (h, c) = policy(o_device, (h, c))
                 lstm_h[:, env_id] = h
                 lstm_c[:, env_id] = c
-            if gru_h is not None:
+            elif gru_h is not None:
                 h = gru_h[:, env_id]
-                actions, logprob, _, value, (h) = policy(o_device, (h,))
+                actions, logprob, _, value, h = policy(o_device, h)
                 gru_h[:, env_id] = h
             else:
                 actions, logprob, _, value = policy(o_device)

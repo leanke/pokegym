@@ -23,7 +23,7 @@ from pokegym.data import poke_and_type_dict, map_dict
 # import torch._inductor.config as icfg
 
 
-class LstmNet(nn.Module):
+class Lstm(nn.Module):
     def __init__(self, env, policy, input_size=512, hidden_size=512, num_layers=1):
         super().__init__()
         self.obs_shape = env.single_observation_space.shape
@@ -78,7 +78,7 @@ class LstmNet(nn.Module):
     def plot_activations(self, activations):
         return self.policy.plot_activations(activations)
 
-class GruNet(nn.Module):
+class Gru(nn.Module):
     def __init__(self, env, policy, input_size=512, hidden_size=512, num_layers=1):
         super().__init__()
         self.obs_shape = env.single_observation_space.shape
@@ -185,21 +185,8 @@ class Policy(nn.Module):
         return final_out, None
 
     def decode_actions(self, flat_hidden, lookup, concat=None):
-        rnn = None #'gru'
-        if rnn == 'lstm':
-            lstm_out, _ = self.lstm(flat_hidden.unsqueeze(1))
-            lstm_out = lstm_out.squeeze(1)
-            action = self.actor(lstm_out)
-            value = self.value_fn(lstm_out)
-            return action, value
-        elif rnn == 'gru':
-            gru_out, _ = self.gru(flat_hidden.unsqueeze(1))
-            gru_out = gru_out.squeeze(1)
-            action = self.actor(gru_out)
-            value = self.value_fn(gru_out)
-        else:
-            action = self.actor(flat_hidden)
-            value = self.value_fn(flat_hidden)
+        action = self.actor(flat_hidden)
+        value = self.value_fn(flat_hidden)
         return action, value
     
     def forward(self, observations):

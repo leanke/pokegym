@@ -47,7 +47,7 @@ def sample_logits(logits: Union[torch.Tensor, List[torch.Tensor]], action=None):
     return action.T, logprob, logits_entropy
 
 
-class Policy(torch.nn.Module):
+class CRLPolicy(torch.nn.Module):
     '''Wrap a non-recurrent PyTorch model for use with CleanRL'''
     def __init__(self, policy):
         super().__init__()
