@@ -23,9 +23,51 @@ from pokegym.data import poke_and_type_dict, map_dict
 # import torch._inductor.config as icfg
 
 
-class Recurrent(pufferlib.models.LSTMWrapper):
+class LstmNet(nn.Module):
     def __init__(self, env, policy, input_size=512, hidden_size=512, num_layers=1):
-        super().__init__(env, policy, input_size, hidden_size, num_layers)
+        super().__init__()
+        self.obs_shape = env.single_observation_space.shape
+        self.policy = policy
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.recurrent = nn.LSTM(input_size, hidden_size, num_layers)
+
+        for name, param in self.recurrent.named_parameters():
+            if "bias" in name:
+                nn.init.constant_(param, 0)
+            elif "weight" in name:
+                nn.init.orthogonal_(param, 1.0)
+
+    def forward(self, x, state):
+        x_shape, space_shape = x.shape, self.obs_shape
+        x_n, space_n = len(x_shape), len(space_shape)
+        if x_shape[-space_n:] != space_shape:
+            raise ValueError('Invalid input tensor shape', x.shape)
+
+        if x_n == space_n + 1:
+            B, TT = x_shape[0], 1
+        elif x_n == space_n + 2:
+            B, TT = x_shape[:2]
+        else:
+            raise ValueError('Invalid input tensor shape', x.shape)
+
+        if state is not None:
+            assert state[0].shape[1] == state[1].shape[1] == B
+
+        x = x.reshape(B*TT, *space_shape)
+
+        hidden, lookup = self.policy.encode_observations(x)
+        assert hidden.shape == (B*TT, self.input_size)
+        hidden = hidden.reshape(B, TT, self.input_size)
+
+        hidden = hidden.transpose(0, 1)
+        hidden, state = self.recurrent(hidden, state)
+        hidden = hidden.transpose(0, 1)
+
+        hidden = hidden.reshape(B*TT, self.hidden_size)
+        hidden, critic = self.policy.decode_actions(hidden, lookup)
+
+        return hidden, critic, state
         
     def get_embeds(self):
         return self.policy.get_embeds()
@@ -36,9 +78,63 @@ class Recurrent(pufferlib.models.LSTMWrapper):
     def plot_activations(self, activations):
         return self.policy.plot_activations(activations)
 
+class GruNet(nn.Module):
+    def __init__(self, env, policy, input_size=512, hidden_size=512, num_layers=1):
+        super().__init__()
+        self.obs_shape = env.single_observation_space.shape
+        self.policy = policy
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.recurrent = nn.GRU(input_size, hidden_size, num_layers)
+
+        for name, param in self.recurrent.named_parameters():
+            if "bias" in name:
+                nn.init.constant_(param, 0)
+            elif "weight" in name:
+                nn.init.orthogonal_(param, 1.0)
+
+    def forward(self, x, state):
+        x_shape, space_shape = x.shape, self.obs_shape
+        x_n, space_n = len(x_shape), len(space_shape)
+        if x_shape[-space_n:] != space_shape:
+            raise ValueError('Invalid input tensor shape', x.shape)
+
+        if x_n == space_n + 1:
+            B, TT = x_shape[0], 1
+        elif x_n == space_n + 2:
+            B, TT = x_shape[:2]
+        else:
+            raise ValueError('Invalid input tensor shape', x.shape)
+
+        if state is not None:
+            assert state.shape[1] == B
+
+        x = x.reshape(B*TT, *space_shape)
+
+        hidden, lookup = self.policy.encode_observations(x)
+        assert hidden.shape == (B*TT, self.input_size)
+        hidden = hidden.reshape(B, TT, self.input_size)
+
+        hidden = hidden.transpose(0, 1)
+        hidden, state = self.recurrent(hidden, state)
+        hidden = hidden.transpose(0, 1)
+
+        hidden = hidden.reshape(B*TT, self.hidden_size)
+        hidden, critic = self.policy.decode_actions(hidden, lookup)
+        
+        return hidden, critic, state
+    
+    def get_embeds(self):
+        return self.policy.get_embeds()
+    
+    def get_activations(self, observations):
+        return self.policy.get_activations(observations)
+    
+    def plot_activations(self, activations):
+        return self.policy.plot_activations(activations)
     
 class Policy(nn.Module):
-    def __init__(self, env, *args, framestack=2, flat_size=64*5*6 + 25 + 192, input_size=512, hidden_size=512, output_size=512, channels_last=True, downsample=1, **kwargs): #64*6*6+90
+    def __init__(self, env, *args, framestack=2, flat_size=64*5*6 + 25, input_size=512, hidden_size=512, output_size=512, channels_last=True, downsample=1, **kwargs): #64*6*6+90
         super().__init__()
         self.save_table = True
         self.channels_last = channels_last
@@ -65,23 +161,6 @@ class Policy(nn.Module):
             pufferlib.pytorch.layer_init(nn.Linear(7, 4)),
             nn.ReLU(),
         )
-        self.poke_id = nn.Embedding(192, 4, dtype=torch.float32)
-        self.poke_type = nn.Embedding(15, 4, dtype=torch.float32)
-        self.move = nn.Embedding(166, 4, dtype=torch.float32)
-        self.status = nn.Embedding(7, 4, dtype=torch.float32)
-        self.stat_fc = nn.Sequential(
-            pufferlib.pytorch.layer_init(nn.Linear(4, 4)),
-            nn.ReLU(),
-        )
-        self.pokemon_fc = nn.Sequential(
-            pufferlib.pytorch.layer_init(nn.Linear(38, 32)),
-            nn.ReLU(),
-            nn.Flatten(),
-        )
-        self.party_fc = nn.Sequential(
-            pufferlib.pytorch.layer_init(nn.Linear(192, 192)),
-            nn.ReLU(),
-        )
         self.enc_lin = nn.Sequential(
             pufferlib.pytorch.layer_init(nn.Linear(flat_size, hidden_size)),
             nn.ReLU(),
@@ -89,30 +168,6 @@ class Policy(nn.Module):
 
     def encode_observations(self, observations):
         observation = pufferlib.pytorch.nativize_tensor(observations, self.dtype)
-
-        id_embed = self.poke_id(observation["pokemon"][:, :, 0].long()).squeeze(2)
-        poke_type_1 = self.poke_type(observation["pokemon"][:, :, 1].long()).squeeze(2)
-        hp = observation["pokemon"][:, :, 2].unsqueeze(-1).float() / 100.0
-        status_embed = self.status(observation["pokemon"][:, :, 3].long()).squeeze(2)
-        move_embed_1 = self.move(observation["pokemon"][:, :, 4].long())
-        move_embed_2 = self.move(observation["pokemon"][:, :, 5].long())
-        move_embed_3 = self.move(observation["pokemon"][:, :, 6].long())
-        move_embed_4 = self.move(observation["pokemon"][:, :, 7].long())
-        level = observation["pokemon"][:, :, 12].unsqueeze(-1).float() / 100.0
-        moves = torch.cat([move_embed_1, move_embed_2, move_embed_3, move_embed_4], dim=-1)
-        move_pp = torch.cat([observation["pokemon"][:, :, 8].unsqueeze(-1).float(), 
-                                observation["pokemon"][:, :, 9].unsqueeze(-1).float(), 
-                                observation["pokemon"][:, :, 10].unsqueeze(-1).float(), 
-                                observation["pokemon"][:, :, 11].unsqueeze(-1).float()], dim=-1)
-        pp_norm = move_pp / 100.0
-        stats = torch.cat([observation["pokemon"][:, :, 13].unsqueeze(-1).float(), 
-                            observation["pokemon"][:, :, 14].unsqueeze(-1).float(), 
-                            observation["pokemon"][:, :, 15].unsqueeze(-1).float(), 
-                            observation["pokemon"][:, :, 16].unsqueeze(-1).float()], dim=-1)
-        stats_out = self.stat_fc(stats / 716.0)
-        mon = torch.cat([id_embed, poke_type_1, moves, level, status_embed, hp, pp_norm, stats_out], dim=-1)
-        party = self.pokemon_fc(mon)
-        party_out = self.party_fc(party)
 
         screens = torch.cat([observation['screen'], observation['fixed_window'],], dim=-1)
         screen = screens.permute(0, 3, 1, 2)
@@ -124,14 +179,27 @@ class Policy(nn.Module):
         pos_cat = torch.cat((map, x, y, direction), dim=-1)
         pos = self.position_fc(pos_cat)
         event = self.event_fc(observation["events"].float())
-        full_cat = torch.cat((cnn, map, event, pos, party_out, observation["in_battle"].float()), dim=-1)
+        full_cat = torch.cat((cnn, map, event, pos, observation["in_battle"].float()), dim=-1) #  party_out,
         final_out = self.enc_lin(full_cat)
 
         return final_out, None
 
     def decode_actions(self, flat_hidden, lookup, concat=None):
-        action = self.actor(flat_hidden)
-        value = self.value_fn(flat_hidden)
+        rnn = None #'gru'
+        if rnn == 'lstm':
+            lstm_out, _ = self.lstm(flat_hidden.unsqueeze(1))
+            lstm_out = lstm_out.squeeze(1)
+            action = self.actor(lstm_out)
+            value = self.value_fn(lstm_out)
+            return action, value
+        elif rnn == 'gru':
+            gru_out, _ = self.gru(flat_hidden.unsqueeze(1))
+            gru_out = gru_out.squeeze(1)
+            action = self.actor(gru_out)
+            value = self.value_fn(gru_out)
+        else:
+            action = self.actor(flat_hidden)
+            value = self.value_fn(flat_hidden)
         return action, value
     
     def forward(self, observations):

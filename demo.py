@@ -27,6 +27,8 @@ from wrappers.async_io import AsyncWrapper
 import pufferlib.emulation
 import pufferlib.postprocess
 
+from policies import LstmPolicy, GruPolicy
+
 
 
 install(show_locals=False) # Rich tracebacks
@@ -38,9 +40,14 @@ import clean_pufferl
    
 def make_policy(env, policy_cls, rnn_cls, args):
     policy = policy_cls(env, **args['policy'])
-    if rnn_cls is not None:
+    if rnn_cls == "GruNet":
+        print("Using GruNet")
         policy = rnn_cls(env, policy, **args['rnn'])
-        policy = pufferlib.frameworks.cleanrl.RecurrentPolicy(policy)
+        policy = GruPolicy(policy)
+    elif rnn_cls == "LstmNet":
+        print("Using LstmNet")
+        policy = rnn_cls(env, policy, **args['rnn'])
+        policy = LstmPolicy(policy)
     else:
         policy = pufferlib.frameworks.cleanrl.Policy(policy)
 
@@ -105,8 +112,6 @@ def env_creator(train_config: List[Dict[str, Any]], wrappers: List[Dict[str, Any
             env = AsyncWrapper(env, async_config['send_queues'], async_config['recv_queues'])
         if wrappers['stream_wrapper']:
             env = StreamWrapper(env, stream_metadata = {"user": f"{wrappers['stream_wrapper_name']}\n",})
-        # env = RenderWrapper(env)
-        # env = pufferlib.postprocess.EpisodeStats(env)
         return pufferlib.emulation.GymnasiumPufferEnv(env=env)
     return make
 

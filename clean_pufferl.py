@@ -50,9 +50,10 @@ def create(config, vecenv, policy, optimizer=None, wandb=None):
     total_agents = vecenv.num_agents
 
     lstm = policy.lstm if hasattr(policy, 'lstm') else None
+    gru = policy.gru if hasattr(policy, 'gru') else None
     experience = Experience(config.batch_size, config.bptt_horizon,
         config.minibatch_size, obs_shape, obs_dtype, atn_shape, atn_dtype,
-        config.cpu_offload, config.device, lstm, total_agents)
+        config.cpu_offload, config.device, lstm, gru, total_agents)
 
     uncompiled_policy = policy
 
@@ -88,6 +89,7 @@ def evaluate(data):
         policy = data.policy
         infos = defaultdict(list)
         lstm_h, lstm_c = experience.lstm_h, experience.lstm_c
+        gru_h = experience.gru_h
 
     while not experience.full:
         with profile.env:
@@ -111,6 +113,10 @@ def evaluate(data):
                 actions, logprob, _, value, (h, c) = policy(o_device, (h, c))
                 lstm_h[:, env_id] = h
                 lstm_c[:, env_id] = c
+            if gru_h is not None:
+                h = gru_h[:, env_id]
+                actions, logprob, _, value, (h) = policy(o_device, (h,))
+                gru_h[:, env_id] = h
             else:
                 actions, logprob, _, value = policy(o_device)
 
@@ -222,6 +228,7 @@ def train(data):
     mean_old_kl, mean_kl, mean_clipfrac = 0, 0, 0
     for epoch in range(config.update_epochs):
         lstm_state = None
+        gru_state = None
         for mb in range(experience.num_minibatches):
             with profile.train_misc:
                 obs = experience.b_obs[mb]
@@ -237,6 +244,10 @@ def train(data):
                     _, newlogprob, entropy, newvalue, lstm_state = data.policy(
                         obs, state=lstm_state, action=atn)
                     lstm_state = (lstm_state[0].detach(), lstm_state[1].detach())
+                if experience.gru_h is not None:
+                    _, newlogprob, entropy, newvalue, gru_state = data.policy(
+                        obs, state=gru_state, action=atn)
+                    gru_state = gru_state.detach()
                 else:
                     _, newlogprob, entropy, newvalue = data.policy(
                         obs.reshape(-1, *data.vecenv.single_observation_space.shape),
@@ -444,7 +455,7 @@ def make_losses():
 class Experience:
     '''Flat tensor storage and array views for faster indexing'''
     def __init__(self, batch_size, bptt_horizon, minibatch_size, obs_shape, obs_dtype, atn_shape, atn_dtype,
-                 cpu_offload=False, device='cuda', lstm=None, lstm_total_agents=0):
+                 cpu_offload=False, device='cuda', lstm=None, gru=None, total_agents=0):
         if minibatch_size is None:
             minibatch_size = batch_size
 
@@ -471,10 +482,15 @@ class Experience:
 
         self.lstm_h = self.lstm_c = None
         if lstm is not None:
-            assert lstm_total_agents > 0
-            shape = (lstm.num_layers, lstm_total_agents, lstm.hidden_size)
+            assert total_agents > 0
+            shape = (lstm.num_layers, total_agents, lstm.hidden_size)
             self.lstm_h = torch.zeros(shape).to(device)
             self.lstm_c = torch.zeros(shape).to(device)
+        self.gru_h = None
+        if gru is not None:
+            assert total_agents > 0
+            shape = (gru.num_layers, total_agents, gru.hidden_size)
+            self.gru_h = torch.zeros(shape).to(device)
 
         num_minibatches = batch_size / minibatch_size
         self.num_minibatches = int(num_minibatches)
