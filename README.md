@@ -19,11 +19,9 @@ pip install -e .
 
 ### Structure
 
-/wrappers: Contains environment wrappers for customizing and extending the base environment.
+/envs: Contains environment wrappers for customizing and extending the base environment.
 
 /pokegym: Holds the core environment files. Modify these files to alter the environment's behavior.
-
-/policies: Includes policy implementations. This is where you'll define and test different reinforcement learning strategies.
 
 /config: Configuration files for setting parameters and environment settings.
 
