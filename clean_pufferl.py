@@ -268,18 +268,21 @@ class PuffeRL:
 
                 # Fast path for fully vectorized envs
                 l = self.ep_lengths[env_id.start].item()
-                batch_rows = slice(self.ep_indices[env_id.start].item(), 1+self.ep_indices[env_id.stop - 1].item())
+                # Use the actual batch size from env_id slice
+                num_envs = env_id.stop - env_id.start
+                start_idx = self.ep_indices[env_id.start].item()
+                batch_rows = slice(start_idx, start_idx + num_envs)
 
                 if config['cpu_offload']:
-                    self.observations[batch_rows, l] = o
+                    self.observations[batch_rows, l] = o[:num_envs]
                 else:
-                    self.observations[batch_rows, l] = o_device
+                    self.observations[batch_rows, l] = o_device[:num_envs]
 
-                self.actions[batch_rows, l] = action
-                self.logprobs[batch_rows, l] = logprob
-                self.rewards[batch_rows, l] = r
-                self.terminals[batch_rows, l] = d.float()
-                self.values[batch_rows, l] = value.flatten()
+                self.actions[batch_rows, l] = action[:num_envs]
+                self.logprobs[batch_rows, l] = logprob[:num_envs]
+                self.rewards[batch_rows, l] = r[:num_envs]
+                self.terminals[batch_rows, l] = d[:num_envs].float()
+                self.values[batch_rows, l] = value[:num_envs].flatten()
 
                 # TODO: Handle masks!!
                 #indices = np.where(mask)[0]

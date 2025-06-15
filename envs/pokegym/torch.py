@@ -112,7 +112,7 @@ class Policy(nn.Module):
         self.is_continuous = False
         self.hidden_size = hidden_size
         self.dtype = pufferlib.pytorch.nativize_dtype(env.emulated)
-        self.encoder = nn.Linear(1940, self.hidden_size)
+        self.encoder = nn.Linear(2081, self.hidden_size)
         self.decoder = pufferlib.pytorch.layer_init(nn.Linear(hidden_size, env.single_action_space.n), std=0.01)
         self.value = pufferlib.pytorch.layer_init(nn.Linear(hidden_size, 1), std=1)
 
@@ -129,6 +129,97 @@ class Policy(nn.Module):
         self.event_fc = nn.Sequential(pufferlib.pytorch.layer_init(nn.Linear(16, 16)),nn.ReLU(),)
         self.position_fc = nn.Sequential(pufferlib.pytorch.layer_init(nn.Linear(7, 4)),nn.ReLU(),)
 
+        self.poke_move_ids_embedding = nn.Embedding(167, 8, padding_idx=0)
+        self.move_fc_relu = nn.Sequential(
+            nn.Linear(10, 8),
+            nn.ReLU(),
+            nn.Linear(8, 8),
+            nn.ReLU(),
+        )
+        self.move_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
+        self.poke_type_ids_embedding = nn.Embedding(17, 8, padding_idx=0)
+        self.poke_ids_embedding = nn.Embedding(192, 16, padding_idx=0)
+        self.poke_fc_relu = nn.Sequential(
+            nn.Linear(63, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+            nn.ReLU(),
+        )
+        self.poke_party_head = nn.Sequential(
+            nn.Linear(32, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+        )
+        self.poke_party_head_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 32))
+        self.poke_opp_head = nn.Sequential(
+            nn.Linear(32, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+        )
+        self.poke_opp_head_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 32))
+        self.item_ids_embedding = nn.Embedding(256, 16, padding_idx=0)  # (20, 16)
+        self.item_ids_fc_relu = nn.Sequential(
+            nn.Linear(17, 16),
+            nn.ReLU(),
+            nn.Linear(16, 16),
+            nn.ReLU(),
+        )
+        self.item_ids_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
+        self.event_ids_embedding = nn.Embedding(2570, 16, padding_idx=0)  # (20, )
+        self.event_ids_fc_relu = nn.Sequential(
+            nn.Linear(17, 16),
+            nn.ReLU(),
+            nn.Linear(16, 16),
+            nn.ReLU(),
+        )
+        self.event_ids_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
+        self._features_dim = 406
+        self.poke_move_ids_embedding = nn.Embedding(167, 8, padding_idx=0)
+        self.move_fc_relu = nn.Sequential(
+            nn.Linear(10, 8),
+            nn.ReLU(),
+            nn.Linear(8, 8),
+            nn.ReLU(),
+        )
+        self.move_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
+        self.poke_type_ids_embedding = nn.Embedding(17, 8, padding_idx=0)
+        self.poke_ids_embedding = nn.Embedding(192, 16, padding_idx=0)
+        self.poke_fc_relu = nn.Sequential(
+            nn.Linear(63, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+            nn.ReLU(),
+        )
+        self.poke_party_head = nn.Sequential(
+            nn.Linear(32, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+        )
+        self.poke_party_head_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 32))
+        self.poke_opp_head = nn.Sequential(
+            nn.Linear(32, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+        )
+        self.poke_opp_head_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 32))
+        self.item_ids_embedding = nn.Embedding(256, 16, padding_idx=0)  # (20, 16)
+        self.item_ids_fc_relu = nn.Sequential(
+            nn.Linear(17, 16),
+            nn.ReLU(),
+            nn.Linear(16, 16),
+            nn.ReLU(),
+        )
+        self.item_ids_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
+        self.event_ids_embedding = nn.Embedding(2570, 16, padding_idx=0)  # (20, )
+        self.event_ids_fc_relu = nn.Sequential(
+            nn.Linear(17, 16),
+            nn.ReLU(),
+            nn.Linear(16, 16),
+            nn.ReLU(),
+        )
+        self.event_ids_max_pool = nn.AdaptiveMaxPool2d(output_size=(1, 16))
+        self._features_dim = 406
+
     def forward_eval(self, observations, state=None):
         hidden = self.encode_observations(observations, state=state)
         logits, values = self.decode_actions(hidden)
@@ -139,23 +230,79 @@ class Policy(nn.Module):
 
     def encode_observations(self, observations, state=None):
         observation = pufferlib.pytorch.nativize_tensor(observations, self.dtype)
-
         screens = torch.cat([observation['screen'], observation['fixed_window'],], dim=-1)
         screen = screens.permute(0, 3, 1, 2)
-        cnn = self.screen(screen.float() / 255.0) # screen and fixed_window stacked
-        map = self.map_embedding(observation["map_n"].long()).squeeze(1) # map_id embedding
-        x = observation["x"].float() / 255.0
-        y = observation["y"].float() / 255.0
-        direction = observation["direction"].float() / 4.0
-        pos_cat = torch.cat((map, x, y, direction), dim=-1) # map embedding, x, y, direction
-        pos = self.position_fc(pos_cat) # position fc
-        event = self.event_fc(observation["events"].float()) # events: badges and bike, hideout, tower, silphco, snorlax_12, snorlax_16, got_flute
-        full_cat = torch.cat((cnn, event, pos, ), dim=-1) # final cat also includes in_battle observation["in_battle"].float()
+        embedded_poke_move_ids = self.poke_move_ids_embedding(observation['poke_move_ids'].to(torch.int))
+        poke_move_pps = observation['poke_move_pps']
+        poke_moves = torch.cat([embedded_poke_move_ids, poke_move_pps], dim=-1)
+        poke_moves = self.move_fc_relu(poke_moves)
+        poke_moves = self.move_max_pool(poke_moves).squeeze(-2)
+        embedded_poke_type_ids = self.poke_type_ids_embedding(observation['poke_type_ids'].to(torch.int))
+        poke_types = torch.sum(embedded_poke_type_ids, dim=-2)
+        embedded_poke_ids = self.poke_ids_embedding(observation['poke_ids'].to(torch.int))
+        poke_ids = embedded_poke_ids
+        poke_stats = observation['poke_all']
+        pokemon_concat = torch.cat([poke_moves, poke_types, poke_ids, poke_stats], dim=-1)
+        pokemon_features = self.poke_fc_relu(pokemon_concat)
+        party_pokemon_features = pokemon_features[..., :6, :]
+        poke_party_head = self.poke_party_head(party_pokemon_features)
+        poke_party_head = self.poke_party_head_max_pool(poke_party_head).squeeze(-2)
+        opp_pokemon_features = pokemon_features[..., 6:, :]
+        poke_opp_head = self.poke_opp_head(opp_pokemon_features)
+        poke_opp_head = self.poke_opp_head_max_pool(poke_opp_head).squeeze(-2)
+        embedded_item_ids = self.item_ids_embedding(observation['item_ids'].to(torch.int))
+        item_quantity = observation['item_quantity']
+        item_concat = torch.cat([embedded_item_ids, item_quantity], dim=-1)
+        item_features = self.item_ids_fc_relu(item_concat)
+        item_features = self.item_ids_max_pool(item_features).squeeze(-2)
+        embedded_event_ids = self.event_ids_embedding(observation['event_ids'].to(torch.int))
+        event_step_since = observation['event_step_since']
+        event_concat = torch.cat([embedded_event_ids, event_step_since], dim=-1)
+        event_features = self.event_ids_fc_relu(event_concat)
+        event_features = self.event_ids_max_pool(event_features).squeeze(-2)
+        vector = observation['vector']
+    # 'bike': Box(0, 1, (1,), uint8), 
+    # 'event_ids': Box(0, 2570, (10,), uint32), 
+    # 'event_step_since': Box(-1.0, 1.0, (10, 1), float32), 
+    # 'fixed_window': Box(0, 255, (72, 80, 1), uint8), 
+    # 'flute': Box(0, 1, (1,), uint8), 
+    # 'hideout': Box(0, 1, (1,), uint8), 
+    # 'item_ids': Box(0, 255, (20,), uint8), 
+    # 'item_quantity': Box(-1.0, 1.0, (20, 1), float32), 
+    # 'map_ids': Box(0, 255, (1,), uint8), 
+    # 'map_n': Box(0, 250, (1,), uint8), 
+    # 'poke_all': Box(-1.0, 1.0, (12, 23), float32), 
+    # 'poke_ids': Box(0, 255, (12,), uint8), 
+    # 'poke_move_ids': Box(0, 255, (12, 4), uint8), 
+    # 'poke_move_pps': Box(-1.0, 1.0, (12, 4, 2), float32), 
+    # 'poke_type_ids': Box(0, 255, (12, 2), uint8), 
+    # 'screen': Box(0, 255, (72, 80, 1), uint8), 
+    # 'silphco': Box(0, 1, (1,), uint8), 
+    # 'snorlax_12': Box(0, 1, (1,), uint8), 
+    # 'snorlax_16': Box(0, 1, (1,), uint8), 
+    # 'tower': Box(0, 1, (1,), uint8), 
+    # 'vector': Box(-1.0, 1.0, (54,), float32)
+        cat = torch.cat((
+            self.screen(screen.float() / 255.0),
+            self.map_embedding(observation["map_n"].long()).squeeze(1),
+            observation["flute"].float(),
+            observation["bike"].float(),
+            observation["hideout"].float(),
+            observation["tower"].float(),
+            observation["silphco"].float(),
+            observation["snorlax_12"].float(),
+            observation["snorlax_16"].float(),
+            poke_party_head, 
+            poke_opp_head, 
+            item_features, 
+            event_features, 
+            vector
+        ),dim=-1,)
 
-
-        return self.encoder(full_cat)
+        return self.encoder(cat)
 
     def decode_actions(self, hidden):
         logits = self.decoder(hidden)
         values = self.value(hidden)
         return logits, values
+    
