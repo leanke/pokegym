@@ -137,7 +137,7 @@ class Pokegym:
             {
                 "screen": spaces.Box(low=0, high=255, shape=self.obs_size, dtype=np.uint8),
                 "fixed_window": spaces.Box(low=0, high=255, shape=(72,80,1), dtype=np.uint8),
-                "in_battle": spaces.Box(low=0, high=3, shape=(1,), dtype=np.uint8),
+                # "in_battle": spaces.Box(low=0, high=3, shape=(1,), dtype=np.uint8),
                 "x": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
                 "y": spaces.Box(low=0, high=255, shape=(1,), dtype=np.uint8),
                 "direction": spaces.Box(low=0, high=4, shape=(1,), dtype=np.uint8),  
@@ -172,7 +172,7 @@ class Pokegym:
         return {
             "screen": self.render(),
             "fixed_window": self.get_fixed_window(mmap, r, c, self.observation_space['screen'].shape),
-            "in_battle": np.array([self.game.memory[0xD057] + 1], dtype=np.uint8),
+            # "in_battle": np.array([self.game.memory[0xD057] + 1], dtype=np.uint8),
             "x": np.array([c], dtype=np.uint8),
             "y": np.array([r], dtype=np.uint8),
             "direction": np.array([self.game.memory[0xC109] // 4], dtype=np.uint8),

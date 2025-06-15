@@ -36,24 +36,6 @@ cython_extension_paths = [
     # 'pong/cy_pong'
 ]
 
-# Build raylib for your platform
-RAYLIB_BASE = 'https://github.com/raysan5/raylib/releases/download/5.5/'
-RAYLIB_NAME = 'raylib-5.5_macos' if platform.system() == "Darwin" else 'raylib-5.5_linux_amd64'
-RLIGHTS_URL = 'https://raw.githubusercontent.com/raysan5/raylib/refs/heads/master/examples/shaders/rlights.h'
-
-def download_raylib(platform, url):
-    if not os.path.exists(platform):
-        urllib.request.urlretrieve(url, platform + '.tar.gz')
-        with tarfile.open(platform + '.tar.gz', 'r') as tar_ref:
-            tar_ref.extractall()
-
-        os.remove(platform + '.tar.gz')
-        urllib.request.urlretrieve(RLIGHTS_URL, platform + '/include/rlights.h')
-
-
-# RAYLIB_WASM = 'raylib-5.5_webassembly'
-# RAYLIB_WASM_URL = RAYLIB_BASE + RAYLIB_WASM + '.zip'
-# download_raylib(RAYLIB_WASM, RAYLIB_WASM_URL)
 
 # Shared compile args for all platforms
 extra_compile_args = [
@@ -108,9 +90,6 @@ if system == 'Linux':
     extra_link_args += [
         '-Bsymbolic-functions',
     ]
-    RAYLIB_LINUX = 'raylib-5.5_linux_amd64'
-    RAYLIB_LINUX_URL = RAYLIB_BASE + RAYLIB_LINUX + '.tar.gz'
-    download_raylib(RAYLIB_LINUX, RAYLIB_LINUX_URL)
 elif system == 'Darwin':
     extra_compile_args += [
     ]
@@ -119,9 +98,6 @@ elif system == 'Darwin':
         '-framework', 'OpenGL',
         '-framework', 'IOKit',
     ]
-    RAYLIB_MACOS = 'raylib-5.5_macos'
-    RAYLIB_MACOS_URL = RAYLIB_BASE + RAYLIB_MACOS + '.tar.gz'
-    download_raylib(RAYLIB_MACOS, RAYLIB_MACOS_URL)
 else:
     raise ValueError(f'Unsupported system: {system}')
 
@@ -156,19 +132,17 @@ class TorchBuildExt(cpp_extension.BuildExtension):
         self.extensions = [e for e in self.extensions if e.name == "pufferlib._C"]
         super().run()
 
-RAYLIB_A = f'{RAYLIB_NAME}/lib/libraylib.a'
 INCLUDE = [numpy.get_include(), 'raylib/include']
 extension_kwargs = dict(
     include_dirs=INCLUDE,
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,
-    extra_objects=[RAYLIB_A],
 )
 
 # Put C env names here. PufferLib will look for
 # pufferlib/ocean/<name>/binding.c
 c_extensions_names = [
-    'pong',
+    # 'pong',
 ]
 
 # TODO: Include other C files so rebuild is auto?
@@ -221,7 +195,6 @@ for key, value in cfg_vars.items():
 
 setup(
     packages=find_namespace_packages() + find_packages(),
-    package_data={"pufferlib": [RAYLIB_NAME + '/lib/libraylib.a']},
     include_package_data=True,
     ext_modules = cython_extensions + c_extensions + torch_extensions,
     cmdclass={
@@ -229,11 +202,11 @@ setup(
         "build_torch": TorchBuildExt,
         "build_c": CBuildExt,
     },
-    include_dirs=[numpy.get_include(), RAYLIB_NAME + '/include'],
+    include_dirs=[numpy.get_include(),],
     keywords=["Puffer", "AI", "RL", "Reinforcement Learning"],
     entry_points={
         'console_scripts': [
-            'mini = clean_pufferl:puffer',
+            'puffer = clean_pufferl:puffer',
         ],
     },
 )
