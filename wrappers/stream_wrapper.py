@@ -67,6 +67,7 @@ class StreamWrapper(gym.Wrapper):
             if int(ram_map.read_bit(self.emulator, 0xD76C, 0)) == 1:
                 self.stream_metadata['color'] = PURPLE
             self.stream_metadata['extra'] = f"{self.env.reset_count} ~ {self.env.swarm_count} ~ {name0}: {lvl0}"
+            self.stream_metadata['env_id'] = f"{self.env.env_id}"
 
             self.loop.run_until_complete(
                 self.broadcast_ws_message(
